@@ -281,6 +281,24 @@
   }
   .stat b { display: block; font-size: 18px; color: var(--text); }
   .new-record { color: var(--gold); font-weight: 800; animation: pop .6s ease-out infinite alternate; }
+  .explain { width: 100%; max-width: 520px; text-align: left; display: flex; flex-direction: column; gap: 8px; }
+  .explain[hidden] { display: none; }
+  .explain h3 { margin: 6px 0 0; font-size: 18px; text-align: center; }
+  .ex-note { margin: 0; font-size: 12px; color: var(--muted); text-align: center; }
+  .ex-round {
+    background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 14px; padding: 10px 14px;
+  }
+  .ex-round summary { cursor: pointer; font-weight: 700; display: flex; justify-content: space-between; gap: 8px; }
+  .ex-round summary .ok { color: var(--good); }
+  .ex-round summary .ng { color: var(--bad); }
+  .ex-item { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.08); }
+  .ex-q { font-size: 17px; line-height: 2; }
+  .ex-a { font-size: 14px; line-height: 2.1; color: var(--text); }
+  .ex-a b { color: var(--gold); }
+  .explain .frac { font-size: .75em; }
+  .explain .bigop .lims, .explain .lim > span:last-child, .explain .sigma > span:nth-child(odd) { font-size: .55em; }
+  .explain sup, .explain sub { font-size: .65em; }
   table.history {
     width: 100%; max-width: 520px;
     border-collapse: collapse;
@@ -393,6 +411,11 @@
       <thead><tr><th>R</th><th>選んだ問題</th><th>答え</th><th>もう一方</th><th>人数</th></tr></thead>
       <tbody id="historyBody"></tbody>
     </table>
+    <section class="explain" id="explain" hidden>
+      <h3>解き方の解説</h3>
+      <p class="ex-note">間違えたラウンドは最初から開いています。タップで開閉できます。</p>
+      <div id="explainList"></div>
+    </section>
     <div class="result-btns">
       <button class="btn" id="retryBtn">もう一回！</button>
       <button class="btn ghost" id="backBtn">タイトルへ</button>
@@ -521,47 +544,80 @@
   ];
 
   // 高校レベル：極限・微分・積分・対数・三角関数・場合の数・数列・複素数
+  // 各問題は [式, 答え, 解き方の解説]
   const HARD = [
-    () => { const a = rand(1, 5); return [`${lim(a)} ${frac(`x<sup>2</sup> − ${a * a}`, `x − ${a}`)}`, 2 * a]; },
-    () => { const k = rand(2, 9); return [`${lim(0)} ${frac(`sin ${k}x`, "x")}`, k]; },
-    () => { const k = rand(2, 6), m = rand(1, 3); return [`${lim(0)} ${frac(`sin ${k * m}x`, `${m}x`)}`, k]; },
-    () => { const k = rand(2, 8); return [`${lim(0)} ${frac(`e<sup>${k}x</sup> − 1`, "x")}`, k]; },
-    () => { const b = rand(1, 3), r = rand(1, 3); return [`${lim("∞")} ${frac(`${coef(b * r)}x<sup>2</sup> + ${rand(1, 9)}x`, `${coef(b)}x<sup>2</sup> − ${rand(1, 9)}`)}`, r]; },
-    () => { const a = rand(1, 3), k = rand(1, 4); return [`f(x) = x<sup>2</sup> + ${coef(k)}x${q(`f′(${a}) = ?`)}`, 2 * a + k]; },
-    () => { const k = rand(2, 11); return [`f(x) = x<sup>3</sup> − ${coef(k)}x${q("f′(2) = ?")}`, 12 - k]; },
-    () => { const a = rand(1, 3), c = rand(1, 9); return [`f(x) = ${frac("1", "3")}x<sup>3</sup> + ${c}${q(`f′(${a}) = ?`)}`, a * a]; },
-    () => { const a = rand(1, 3); return [`${integral(0, a)} 2x dx`, a * a]; },
-    () => { const a = rand(1, 2); return [`${integral(0, a)} 3x<sup>2</sup> dx`, a ** 3]; },
-    () => { const a = rand(1, 2), b = rand(1, 3); return [`${integral(0, a)} (2x + ${b}) dx`, a * a + a * b]; },
-    () => [`${integral(0, "π")} sin x dx`, 2],
-    () => [`${integral(1, "e")} ${frac(1, "x")} dx`, 1],
-    () => { const k = rand(2, 9); return [`${integral(0, 1)} ${k} dx`, k]; },
-    () => { const [b, n] = pick([[2, 1], [2, 2], [2, 3], [2, 4], [3, 2], [3, 4], [10, 3], [5, 2]]); return [`log<sub>${b}</sub> ${b ** n}`, n]; },
-    () => { const n = rand(3, 6), m = rand(1, n - 1); return [`log<sub>2</sub> ${2 ** n} − log<sub>2</sub> ${2 ** m}`, n - m]; },
-    () => { const c = pick([2, 4, 6, 8, 10, 12]); return [`${c} sin ${PI6}`, c / 2]; },
-    () => { const c = pick([2, 4, 6, 8, 10, 12]); return [`${c} cos ${PI3}`, c / 2]; },
-    () => { const c = rand(2, 9); return [`${c} tan ${PI4}`, c]; },
-    () => { const c = pick([2, 4, 6, 8, 10]); return [`${c} sin<sup>2</sup> ${PI4}`, c / 2]; },
-    () => { const [n, r, v] = pick([[5, 2, 10], [4, 2, 6], [4, 3, 4], [6, 1, 6], [3, 2, 3], [7, 1, 7]]); return [`<sub>${n}</sub>C<sub>${r}</sub>`, v]; },
-    () => { const [n, r, v] = pick([[3, 2, 6], [4, 1, 4], [2, 2, 2], [5, 1, 5], [9, 1, 9]]); return [`<sub>${n}</sub>P<sub>${r}</sub>`, v]; },
-    () => { const n = rand(2, 4); return [`${sigma(n, "k=1")} k`, (n * (n + 1)) / 2]; },
-    () => [`${sigma(2, "k=1")} k<sup>2</sup>`, 5],
-    () => { const [a, b, r] = pick([[3, 4, 5], [6, 8, 10], [4, 3, 5]]); return [`|${a} + ${b}i|`, r]; },
-    () => { const k = rand(1, 9); return [`i<sup>2</sup> + ${k + 1}`, k]; },
-    () => { const a = rand(1, 3); return [`(${a} + i)(${a} − i)`, a * a + 1]; },
+    () => { const a = rand(1, 5); return [`${lim(a)} ${frac(`x<sup>2</sup> − ${a * a}`, `x − ${a}`)}`, 2 * a,
+      `分子を因数分解すると ${frac(`(x − ${a})(x + ${a})`, `x − ${a}`)} = x + ${a}。約分してから x = ${a} を代入して <b>${a} + ${a} = ${2 * a}</b>`]; },
+    () => { const k = rand(2, 9); return [`${lim(0)} ${frac(`sin ${k}x`, "x")}`, k,
+      `公式 ${lim(0)} ${frac("sin θ", "θ")} = 1 を使う。${frac(`sin ${k}x`, "x")} = ${k} × ${frac(`sin ${k}x`, `${k}x`)} と変形すると <b>${k} × 1 = ${k}</b>`]; },
+    () => { const k = rand(2, 6), m = rand(1, 3); return [`${lim(0)} ${frac(`sin ${k * m}x`, `${m}x`)}`, k,
+      `${frac(`sin ${k * m}x`, `${m}x`)} = ${frac(k * m, m)} × ${frac(`sin ${k * m}x`, `${k * m}x`)} と変形。${lim(0)} ${frac("sin θ", "θ")} = 1 より <b>${k} × 1 = ${k}</b>`]; },
+    () => { const k = rand(2, 8); return [`${lim(0)} ${frac(`e<sup>${k}x</sup> − 1`, "x")}`, k,
+      `公式 ${lim(0)} ${frac("e<sup>t</sup> − 1", "t")} = 1 を使う。${k} × ${frac(`e<sup>${k}x</sup> − 1`, `${k}x`)} と変形すると <b>${k} × 1 = ${k}</b>`]; },
+    () => { const b = rand(1, 3), r = rand(1, 3), c = rand(1, 9), d = rand(1, 9); return [`${lim("∞")} ${frac(`${coef(b * r)}x<sup>2</sup> + ${c}x`, `${coef(b)}x<sup>2</sup> − ${d}`)}`, r,
+      `分母・分子を x<sup>2</sup> で割ると ${frac(`${b * r} + ${frac(c, "x")}`, `${b} − ${frac(d, "x<sup>2</sup>")}`)}。x → ∞ で ${frac(c, "x")}, ${frac(d, "x<sup>2</sup>")} → 0 なので <b>${frac(b * r, b)} = ${r}</b>`]; },
+    () => { const a = rand(1, 3), k = rand(1, 4); return [`f(x) = x<sup>2</sup> + ${coef(k)}x${q(`f′(${a}) = ?`)}`, 2 * a + k,
+      `(x<sup>n</sup>)′ = nx<sup>n−1</sup> より f′(x) = 2x + ${k}。x = ${a} を代入して <b>${2 * a} + ${k} = ${2 * a + k}</b>`]; },
+    () => { const k = rand(2, 11); return [`f(x) = x<sup>3</sup> − ${coef(k)}x${q("f′(2) = ?")}`, 12 - k,
+      `f′(x) = 3x<sup>2</sup> − ${k}。x = 2 を代入して <b>12 − ${k} = ${12 - k}</b>`]; },
+    () => { const a = rand(1, 3), c = rand(1, 9); return [`f(x) = ${frac("1", "3")}x<sup>3</sup> + ${c}${q(`f′(${a}) = ?`)}`, a * a,
+      `f′(x) = ${frac(1, 3)} × 3x<sup>2</sup> = x<sup>2</sup>（定数 ${c} は微分すると 0）。x = ${a} を代入して <b>${a * a}</b>`]; },
+    () => { const a = rand(1, 3); return [`${integral(0, a)} 2x dx`, a * a,
+      `2x の原始関数は x<sup>2</sup>。[x<sup>2</sup>] を 0 から ${a} まで計算して <b>${a * a} − 0 = ${a * a}</b>`]; },
+    () => { const a = rand(1, 2); return [`${integral(0, a)} 3x<sup>2</sup> dx`, a ** 3,
+      `3x<sup>2</sup> の原始関数は x<sup>3</sup>。[x<sup>3</sup>] を 0 から ${a} まで計算して <b>${a ** 3} − 0 = ${a ** 3}</b>`]; },
+    () => { const a = rand(1, 2), b = rand(1, 3); return [`${integral(0, a)} (2x + ${b}) dx`, a * a + a * b,
+      `原始関数は x<sup>2</sup> + ${b}x。x = ${a} を代入して <b>${a * a} + ${a * b} = ${a * a + a * b}</b>（x = 0 では 0）`]; },
+    () => [`${integral(0, "π")} sin x dx`, 2,
+      `sin x の原始関数は −cos x。[−cos x] を 0 から π まで計算して <b>(−cos π) − (−cos 0) = 1 + 1 = 2</b>`],
+    () => [`${integral(1, "e")} ${frac(1, "x")} dx`, 1,
+      `${frac(1, "x")} の原始関数は log x。[log x] を 1 から e まで計算して <b>log e − log 1 = 1 − 0 = 1</b>`],
+    () => { const k = rand(2, 9); return [`${integral(0, 1)} ${k} dx`, k,
+      `定数 ${k} の原始関数は ${k}x。[${k}x] を 0 から 1 まで計算して <b>${k} − 0 = ${k}</b>`]; },
+    () => { const [b, n] = pick([[2, 1], [2, 2], [2, 3], [2, 4], [3, 2], [3, 4], [10, 3], [5, 2]]); return [`log<sub>${b}</sub> ${b ** n}`, n,
+      `${b ** n} = ${b}<sup>${n}</sup> なので log<sub>${b}</sub> ${b}<sup>${n}</sup> = <b>${n}</b>（「${b} を何乗すると ${b ** n} になるか」）`]; },
+    () => { const n = rand(3, 6), m = rand(1, n - 1); return [`log<sub>2</sub> ${2 ** n} − log<sub>2</sub> ${2 ** m}`, n - m,
+      `log<sub>2</sub> ${2 ** n} = ${n}、log<sub>2</sub> ${2 ** m} = ${m} なので <b>${n} − ${m} = ${n - m}</b>（log<sub>2</sub> ${frac(2 ** n, 2 ** m)} = log<sub>2</sub> ${2 ** (n - m)} でもOK）`]; },
+    () => { const c = pick([2, 4, 6, 8, 10, 12]); return [`${c} sin ${PI6}`, c / 2,
+      `${PI6} = 30°。sin 30° = ${frac(1, 2)} なので <b>${c} × ${frac(1, 2)} = ${c / 2}</b>`]; },
+    () => { const c = pick([2, 4, 6, 8, 10, 12]); return [`${c} cos ${PI3}`, c / 2,
+      `${PI3} = 60°。cos 60° = ${frac(1, 2)} なので <b>${c} × ${frac(1, 2)} = ${c / 2}</b>`]; },
+    () => { const c = rand(2, 9); return [`${c} tan ${PI4}`, c,
+      `${PI4} = 45°。tan 45° = 1 なので <b>${c} × 1 = ${c}</b>`]; },
+    () => { const c = pick([2, 4, 6, 8, 10]); return [`${c} sin<sup>2</sup> ${PI4}`, c / 2,
+      `sin 45° = ${frac(sqrt(2), 2)} なので sin<sup>2</sup> 45° = ${frac(2, 4)} = ${frac(1, 2)}。<b>${c} × ${frac(1, 2)} = ${c / 2}</b>`]; },
+    () => { const [n, r, v] = pick([[5, 2, 10], [4, 2, 6], [4, 3, 4], [6, 1, 6], [3, 2, 3], [7, 1, 7]]); return [`<sub>${n}</sub>C<sub>${r}</sub>`, v,
+      `${n} 個から ${r} 個を選ぶ組み合わせ。<sub>${n}</sub>C<sub>${r}</sub> = ${frac(fall(n, r), fall(r, r))} = <b>${v}</b>`]; },
+    () => { const [n, r, v] = pick([[3, 2, 6], [4, 1, 4], [2, 2, 2], [5, 1, 5], [9, 1, 9]]); return [`<sub>${n}</sub>P<sub>${r}</sub>`, v,
+      `${n} 個から ${r} 個を選んで並べる順列。<sub>${n}</sub>P<sub>${r}</sub> = ${fall(n, r)} = <b>${v}</b>`]; },
+    () => { const n = rand(2, 4); return [`${sigma(n, "k=1")} k`, (n * (n + 1)) / 2,
+      `k = 1 から ${n} までを足す：${Array.from({ length: n }, (_, i) => i + 1).join(" + ")} = <b>${(n * (n + 1)) / 2}</b>`]; },
+    () => [`${sigma(2, "k=1")} k<sup>2</sup>`, 5,
+      `k = 1, 2 の k<sup>2</sup> を足す：1<sup>2</sup> + 2<sup>2</sup> = 1 + 4 = <b>5</b>`],
+    () => { const [a, b, r] = pick([[3, 4, 5], [6, 8, 10], [4, 3, 5]]); return [`|${a} + ${b}i|`, r,
+      `複素数 a + bi の絶対値は ${sqrt("a<sup>2</sup> + b<sup>2</sup>")}。${sqrt(`${a * a} + ${b * b}`)} = ${sqrt(r * r)} = <b>${r}</b>`]; },
+    () => { const k = rand(1, 9); return [`i<sup>2</sup> + ${k + 1}`, k,
+      `i<sup>2</sup> = −1 なので <b>−1 + ${k + 1} = ${k}</b>`]; },
+    () => { const a = rand(1, 3); return [`(${a} + i)(${a} − i)`, a * a + 1,
+      `(a + b)(a − b) = a<sup>2</sup> − b<sup>2</sup> より ${a * a} − i<sup>2</sup>。i<sup>2</sup> = −1 なので <b>${a * a} + 1 = ${a * a + 1}</b>`]; },
   ];
   const HARD_TRAPS = [
-    () => [`log<sub>4</sub> 2`, 1 / 2],
-    () => [`log<sub>9</sub> 3`, 1 / 2],
-    () => [`log<sub>8</sub> 2`, 1 / 3],
-    () => [`${integral(0, 1)} x dx`, 1 / 2],
-    () => [`${integral(0, 1)} x<sup>2</sup> dx`, 1 / 3],
-    () => [`sin ${PI6}`, 1 / 2],
-    () => [`cos ${PI3}`, 1 / 2],
-    () => [`${lim("∞")} ${frac("x", "2x + 1")}`, 1 / 2],
-    () => [`${lim("∞")} ${frac(`x<sup>2</sup> + ${rand(1, 9)}`, `3x<sup>2</sup> − ${rand(1, 9)}`)}`, 1 / 3],
-    () => [`${lim(0)} ${frac("sin x", "4x")}`, 1 / 4],
+    () => [`log<sub>4</sub> 2`, 1 / 2, `4<sup>${frac(1, 2)}</sup> = ${sqrt(4)} = 2 なので <b>${frac(1, 2)}</b>。1より小さいので人数が減るワナ！`],
+    () => [`log<sub>9</sub> 3`, 1 / 2, `9<sup>${frac(1, 2)}</sup> = ${sqrt(9)} = 3 なので <b>${frac(1, 2)}</b>。1より小さいので人数が減るワナ！`],
+    () => [`log<sub>8</sub> 2`, 1 / 3, `8<sup>${frac(1, 3)}</sup> = 2（2<sup>3</sup> = 8）なので <b>${frac(1, 3)}</b>。1より小さいワナ！`],
+    () => [`${integral(0, 1)} x dx`, 1 / 2, `x の原始関数は ${frac(1, 2)}x<sup>2</sup>。x = 1 を代入して <b>${frac(1, 2)}</b>。1より小さいワナ！`],
+    () => [`${integral(0, 1)} x<sup>2</sup> dx`, 1 / 3, `x<sup>2</sup> の原始関数は ${frac(1, 3)}x<sup>3</sup>。x = 1 を代入して <b>${frac(1, 3)}</b>。1より小さいワナ！`],
+    () => [`sin ${PI6}`, 1 / 2, `${PI6} = 30°、sin 30° = <b>${frac(1, 2)}</b>。1より小さいワナ！`],
+    () => [`cos ${PI3}`, 1 / 2, `${PI3} = 60°、cos 60° = <b>${frac(1, 2)}</b>。1より小さいワナ！`],
+    () => [`${lim("∞")} ${frac("x", "2x + 1")}`, 1 / 2,
+      `分母・分子を x で割ると ${frac(1, `2 + ${frac(1, "x")}`)}。${frac(1, "x")} → 0 なので <b>${frac(1, 2)}</b>。1より小さいワナ！`],
+    () => { const c = rand(1, 9), d = rand(1, 9); return [`${lim("∞")} ${frac(`x<sup>2</sup> + ${c}`, `3x<sup>2</sup> − ${d}`)}`, 1 / 3,
+      `分母・分子を x<sup>2</sup> で割ると x<sup>2</sup> の係数の比だけが残り <b>${frac(1, 3)}</b>。1より小さいワナ！`]; },
+    () => [`${lim(0)} ${frac("sin x", "4x")}`, 1 / 4,
+      `${frac(1, 4)} × ${frac("sin x", "x")} と分けると、${lim(0)} ${frac("sin x", "x")} = 1 より <b>${frac(1, 4)}</b>。1より小さいワナ！`],
   ];
+  // n × (n−1) × … を r 個（順列・組み合わせの解説用）
+  const fall = (n, r) => Array.from({ length: r }, (_, i) => n - i).join(" × ");
 
   // 式文字列を安全に評価（数字・演算子・括弧のみ）
   function evaluate(expr) {
@@ -581,9 +637,9 @@
     const traps = diff === "hard" ? HARD_TRAPS : NORMAL_TRAPS;
     const trapRate = round <= 2 ? 0 : round <= 6 ? 0.12 : 0.2;
     for (let i = 0; i < 200; i++) {
-      const [expr, ans] = pick(Math.random() < trapRate ? traps : pool)();
+      const [expr, ans, expl] = pick(Math.random() < trapRate ? traps : pool)();
       if (!(ans > 0 && ans <= 10)) continue;
-      return { expr, ans };
+      return { expr, ans, expl };
     }
     return { expr: sqrt(4), ans: 2 };
   }
@@ -859,6 +915,7 @@
     state.history.push({
       round: state.round, expr: chosen.expr, ans: chosen.ans,
       otherExpr: other.expr, otherAns: other.ans, members: after, isBest, timeout,
+      expl: chosen.expl, otherExpl: other.expl,
     });
 
     setTimeout(nextRound, 1500);
@@ -904,6 +961,24 @@
         <td>${h.otherExpr} = ${fmtAns(h.otherAns)}</td>
         <td>${formatNum(h.members)}</td>
       </tr>`).join("");
+
+    // むずかしい問題には解き方の解説をつける
+    const withExpl = state.history.filter((h) => h.expl);
+    $("explain").hidden = withExpl.length === 0;
+    const item = (expr, ans, expl, mark) => `
+      <div class="ex-item">
+        <div class="ex-q">${mark} ${expr} = <b>${fmtAns(ans)}</b></div>
+        <div class="ex-a">${expl}</div>
+      </div>`;
+    $("explainList").innerHTML = withExpl.map((h) => {
+      const bigger = h.ans > h.otherAns;
+      return `
+      <details class="ex-round"${h.isBest ? "" : " open"}>
+        <summary>ラウンド ${h.round}<span class="${h.isBest ? "ok" : "ng"}">${h.isBest ? "◎ 正解" : h.timeout ? "⏰ 時間切れ" : "× 不正解"}</span></summary>
+        ${item(h.expr, h.ans, h.expl, bigger ? "👑 選んだ問題" : "選んだ問題")}
+        ${item(h.otherExpr, h.otherAns, h.otherExpl, bigger ? "もう一方" : "👑 もう一方")}
+      </details>`;
+    }).join("");
   }
 
   function confetti() {
