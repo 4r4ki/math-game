@@ -115,9 +115,10 @@
   }
   .timer.danger > div { background: linear-gradient(90deg, var(--bad), #ff9a5c); }
 
-  .gates { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .gates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
   .gate {
     position: relative;
+    min-width: 0;
     border: 3px solid var(--c);
     border-radius: 20px;
     padding: 18px 8px 16px;
@@ -139,6 +140,7 @@
     font-weight: 800;
     margin: 8px 0 6px;
     white-space: nowrap;
+    overflow: hidden;
     font-variant-numeric: tabular-nums;
   }
   .gate .times { font-size: 15px; color: var(--muted); min-height: 1.4em; }
@@ -156,6 +158,11 @@
     font-size: 26px;
   }
   .gates.locked .gate { pointer-events: none; }
+  @media (max-width: 480px) {
+    .gates { gap: 10px; }
+    .gate { padding: 16px 4px 14px; border-radius: 16px; }
+    .gate .key { display: none; }
+  }
 
   .feedback {
     height: 44px;
@@ -555,6 +562,18 @@
     el.classList.add("pop");
   }
 
+  // 長い式がゲートからはみ出さないよう、2つの式を同じ大きさまで縮める
+  function fitExprs() {
+    const els = [$("exprA"), $("exprB")];
+    els.forEach((el) => { el.style.fontSize = ""; });
+    let size = parseFloat(getComputedStyle(els[0]).fontSize);
+    while (size > 12 && els.some((el) => el.scrollWidth > el.clientWidth)) {
+      size -= 1;
+      els.forEach((el) => { el.style.fontSize = `${size}px`; });
+    }
+  }
+  window.addEventListener("resize", () => { if (state.pair) fitExprs(); });
+
   // ===== ゲーム進行 =====
   function startGame() {
     Object.assign(state, {
@@ -582,8 +601,10 @@
     state.curLimit = limit;
 
     $("roundNo").textContent = state.round;
-    $("exprA").textContent = state.pair[0].expr;
-    $("exprB").textContent = state.pair[1].expr;
+    // 表示では演算子まわりを細いスペースにして横幅を節約
+    $("exprA").textContent = state.pair[0].expr.replace(/ /g, "\u2009");
+    $("exprB").textContent = state.pair[1].expr.replace(/ /g, "\u2009");
+    fitExprs();
     $("timesA").innerHTML = "× ?";
     $("timesB").innerHTML = "× ?";
     document.querySelectorAll(".gate").forEach((g) => g.classList.remove("dim", "picked", "best-mark"));
