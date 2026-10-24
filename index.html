@@ -549,32 +549,47 @@
 
   // 中学レベル：ルート・分数・累乗・負の数・方程式
   const NORMAL = [
-    () => { const k = rand(2, 10); return [sqrt(k * k), k]; },
-    () => { const [a, b, r] = pick([[2, 8, 4], [3, 12, 6], [2, 18, 6], [5, 20, 10], [3, 27, 9], [2, 32, 8], [3, 3, 3], [7, 7, 7], [2, 50, 10]]); return [`${sqrt(a)} × ${sqrt(b)}`, r]; },
-    () => { const k = rand(2, 5), m = pick([2, 3, 5]); return [`${sqrt(m * k * k)} ÷ ${sqrt(m)}`, k]; },
-    () => { const k = rand(2, 4), m = pick([2, 3]), t = rand(1, 9); return [`(${coef(k)}${sqrt(m)})<sup>2</sup> − ${m * k * k - t}`, t]; },
-    () => { const d = rand(2, 7), t = rand(1, 4), a = rand(1, d * t - 1); return [`${frac(a, d)} + ${frac(d * t - a, d)}`, t]; },
-    () => { const d = rand(2, 6), a = rand(1, d - 1), k = rand(1, 3); return [`${frac(a, d)} × ${d * k}`, a * k]; },
-    () => { const a = rand(1, 3), b = rand(2, 4), c = rand(1, 3); return [`${frac(a, b)} ÷ ${frac(1, b * c)}`, a * c]; },
-    () => { const n = rand(2, 3), c = rand(1, 2); return [`2<sup>${n}</sup> + ${c}`, 2 ** n + c]; },
-    () => { const b = rand(3, 5), t = rand(1, 9); return [`${b}<sup>2</sup> − ${b * b - t}`, t]; },
-    () => { const a = rand(1, 3), b = rand(1, 3); return [`(−${a}) × (−${b})`, a * b]; },
-    () => { const a = rand(2, 3), t = rand(1, 9); return [`(−${a})<sup>2</sup> ${a * a > t ? `− ${a * a - t}` : `+ ${t - a * a}`}`, t]; },
-    () => { const a = rand(2, 9), t = rand(1, 9); return [`−${a} + ${a + t}`, t]; },
-    () => { const a = rand(2, 5), b = rand(1, 9), t = rand(1, 9); return [`${a}x + ${b} = ${a * t + b}${q("x = ?")}`, t]; },
-    () => { const a = rand(2, 4), b = rand(1, 9), t = rand(2, 9); return [`${a}x − ${b} = ${a * t - b}${q("x = ?")}`, t]; },
-    () => { const t = rand(2, 9), b = rand(2, 4); return [`${frac("x", b)} = ${frac(t, b)}${q("x = ?")}`, t]; },
+    () => { const k = rand(2, 10); return [sqrt(k * k), k,
+      `${k}<sup>2</sup> = ${k * k} なので ${sqrt(k * k)} = <b>${k}</b>（2乗して ${k * k} になる正の数）`]; },
+    () => { const [a, b, r] = pick([[2, 8, 4], [3, 12, 6], [2, 18, 6], [5, 20, 10], [3, 27, 9], [2, 32, 8], [3, 3, 3], [7, 7, 7], [2, 50, 10]]); return [`${sqrt(a)} × ${sqrt(b)}`, r,
+      `ルートどうしの掛け算は中身を掛ける：${sqrt(`${a} × ${b}`)} = ${sqrt(a * b)}。${r}<sup>2</sup> = ${r * r} なので <b>${r}</b>`]; },
+    () => { const k = rand(2, 5), m = pick([2, 3, 5]); return [`${sqrt(m * k * k)} ÷ ${sqrt(m)}`, k,
+      `ルートどうしの割り算は中身を割る：${sqrt(`${m * k * k} ÷ ${m}`)} = ${sqrt(k * k)} = <b>${k}</b>`]; },
+    () => { const k = rand(2, 4), m = pick([2, 3]), t = rand(1, 9); return [`(${coef(k)}${sqrt(m)})<sup>2</sup> − ${m * k * k - t}`, t,
+      `(${k}${sqrt(m)})<sup>2</sup> = ${k}<sup>2</sup> × (${sqrt(m)})<sup>2</sup> = ${k * k} × ${m} = ${m * k * k}。<b>${m * k * k} − ${m * k * k - t} = ${t}</b>`]; },
+    () => { const d = rand(2, 7), t = rand(1, 4), a = rand(1, d * t - 1); return [`${frac(a, d)} + ${frac(d * t - a, d)}`, t,
+      `分母が同じなので分子どうしを足す：${frac(`${a} + ${d * t - a}`, d)} = ${frac(d * t, d)} = <b>${t}</b>`]; },
+    () => { const d = rand(2, 6), a = rand(1, d - 1), k = rand(1, 3); return [`${frac(a, d)} × ${d * k}`, a * k,
+      `${frac(`${a} × ${d * k}`, d)} = ${frac(a * d * k, d)}。約分して <b>${a * k}</b>`]; },
+    () => { const a = rand(1, 3), b = rand(2, 4), c = rand(1, 3); return [`${frac(a, b)} ÷ ${frac(1, b * c)}`, a * c,
+      `分数で割るときは逆数を掛ける：${frac(a, b)} × ${b * c} = ${frac(a * b * c, b)} = <b>${a * c}</b>`]; },
+    () => { const n = rand(2, 3), c = rand(1, 2); return [`2<sup>${n}</sup> + ${c}`, 2 ** n + c,
+      `2<sup>${n}</sup> = ${Array(n).fill(2).join(" × ")} = ${2 ** n}。<b>${2 ** n} + ${c} = ${2 ** n + c}</b>`]; },
+    () => { const b = rand(3, 5), t = rand(1, 9); return [`${b}<sup>2</sup> − ${b * b - t}`, t,
+      `${b}<sup>2</sup> = ${b} × ${b} = ${b * b}。<b>${b * b} − ${b * b - t} = ${t}</b>`]; },
+    () => { const a = rand(1, 3), b = rand(1, 3); return [`(−${a}) × (−${b})`, a * b,
+      `マイナス × マイナスはプラスになる：<b>${a} × ${b} = ${a * b}</b>`]; },
+    () => { const a = rand(2, 3), t = rand(1, 9); return [`(−${a})<sup>2</sup> ${a * a > t ? `− ${a * a - t}` : `+ ${t - a * a}`}`, t,
+      `(−${a})<sup>2</sup> = (−${a}) × (−${a}) = ${a * a}（2乗するとプラス）。<b>${a * a} ${a * a > t ? `− ${a * a - t}` : `+ ${t - a * a}`} = ${t}</b>`]; },
+    () => { const a = rand(2, 9), t = rand(1, 9); return [`−${a} + ${a + t}`, t,
+      `${a + t} から ${a} を引くのと同じ：<b>${a + t} − ${a} = ${t}</b>`]; },
+    () => { const a = rand(2, 5), b = rand(1, 9), t = rand(1, 9); return [`${a}x + ${b} = ${a * t + b}${q("x = ?")}`, t,
+      `+${b} を右辺に移項して ${a}x = ${a * t + b} − ${b} = ${a * t}。両辺を ${a} で割って <b>x = ${t}</b>`]; },
+    () => { const a = rand(2, 4), b = rand(1, 9), t = rand(2, 9); return [`${a}x − ${b} = ${a * t - b}${q("x = ?")}`, t,
+      `−${b} を右辺に移項して ${a}x = ${a * t - b} + ${b} = ${a * t}。両辺を ${a} で割って <b>x = ${t}</b>`]; },
+    () => { const t = rand(2, 9), b = rand(2, 4); return [`${frac("x", b)} = ${frac(t, b)}${q("x = ?")}`, t,
+      `両辺に ${b} を掛けて <b>x = ${t}</b>`]; },
   ];
   // 1より小さい答え（ワナ）
   const NORMAL_TRAPS = [
-    () => [`${frac(1, 2)} ÷ 2`, 1 / 4],
-    () => [`${frac(2, 3)} × ${frac(3, 4)}`, 1 / 2],
-    () => [`${sqrt(2)} ÷ ${sqrt(8)}`, 1 / 2],
-    () => [`2<sup>−1</sup>`, 1 / 2],
-    () => [`3<sup>−1</sup>`, 1 / 3],
-    () => [`(${sqrt(3)})<sup>2</sup> ÷ 9`, 1 / 3],
-    () => [`${frac(1, 2)} − ${frac(1, 4)}`, 1 / 4],
-    () => [`${frac(3, 4)} ÷ ${frac(3, 2)}`, 1 / 2],
+    () => [`${frac(1, 2)} ÷ 2`, 1 / 4, `2 で割るのは ${frac(1, 2)} を掛けるのと同じ：${frac(1, 2)} × ${frac(1, 2)} = <b>${frac(1, 4)}</b>。1より小さいので人数が減るワナ！`],
+    () => [`${frac(2, 3)} × ${frac(3, 4)}`, 1 / 2, `分子どうし・分母どうしを掛ける：${frac("2 × 3", "3 × 4")} = ${frac(6, 12)} = <b>${frac(1, 2)}</b>。1より小さいワナ！`],
+    () => [`${sqrt(2)} ÷ ${sqrt(8)}`, 1 / 2, `${sqrt(frac(2, 8))} = ${sqrt(frac(1, 4))} = <b>${frac(1, 2)}</b>（${sqrt(8)} = 2${sqrt(2)} と考えてもOK）。1より小さいワナ！`],
+    () => [`2<sup>−1</sup>`, 1 / 2, `マイナスの指数は逆数：2<sup>−1</sup> = ${frac(1, "2<sup>1</sup>")} = <b>${frac(1, 2)}</b>。1より小さいワナ！`],
+    () => [`3<sup>−1</sup>`, 1 / 3, `マイナスの指数は逆数：3<sup>−1</sup> = ${frac(1, "3<sup>1</sup>")} = <b>${frac(1, 3)}</b>。1より小さいワナ！`],
+    () => [`(${sqrt(3)})<sup>2</sup> ÷ 9`, 1 / 3, `(${sqrt(3)})<sup>2</sup> = 3。3 ÷ 9 = ${frac(3, 9)} = <b>${frac(1, 3)}</b>。1より小さいワナ！`],
+    () => [`${frac(1, 2)} − ${frac(1, 4)}`, 1 / 4, `通分して ${frac(2, 4)} − ${frac(1, 4)} = <b>${frac(1, 4)}</b>。1より小さいワナ！`],
+    () => [`${frac(3, 4)} ÷ ${frac(3, 2)}`, 1 / 2, `逆数を掛ける：${frac(3, 4)} × ${frac(2, 3)} = ${frac(6, 12)} = <b>${frac(1, 2)}</b>。1より小さいワナ！`],
   ];
 
   // 高校レベル：極限・微分・積分・対数・三角関数・場合の数・数列・複素数
@@ -1066,12 +1081,18 @@
         <td>${formatNum(h.members)}</td>
       </tr>`).join("");
 
-    // むずかしい問題には解き方の解説をつける
+    // ふつう・むずかしいの問題には解き方の解説をつける
     const withExpl = state.history.filter((h) => h.expl);
     $("explain").hidden = withExpl.length === 0;
+    // 「x = ?」「f′(1) = ?」のような問いがある式は「式 → x = 答え」の形で見せる
+    const withAnswer = (expr, ans) => {
+      const m = expr.match(/<span class="q">(.*?)<\/span>/);
+      if (!m) return `${expr} = <b>${fmtAns(ans)}</b>`;
+      return `${expr.replace(m[0], "")} → ${m[1].replace(/ = \?$/, "")} = <b>${fmtAns(ans)}</b>`;
+    };
     const item = (expr, ans, expl, mark, op) => `
       <div class="ex-item">
-        <div class="ex-q">${mark} ${expr} = <b>${fmtAns(ans)}</b>${endless() ? `<small>（ゲートは ${op} ${fmtAns(ans)}）</small>` : ""}</div>
+        <div class="ex-q">${mark} ${withAnswer(expr, ans)}${endless() ? `<small>（ゲートは ${op} ${fmtAns(ans)}）</small>` : ""}</div>
         <div class="ex-a">${expl}</div>
       </div>`;
     $("explainList").innerHTML = withExpl.map((h) => {
