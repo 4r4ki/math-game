@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>かけ算ラン！なかま増やしゲーム</title>
+<style>
+  :root {
+    --bg1: #1b1f4b;
+    --bg2: #3a1c6b;
+    --panel: rgba(255, 255, 255, 0.08);
+    --panel-border: rgba(255, 255, 255, 0.18);
+    --text: #f5f6ff;
+    --muted: #b9bce6;
+    --good: #3ee08f;
+    --bad: #ff5c7a;
+    --gold: #ffd34d;
+    --gateA: #38bdf8;
+    --gateB: #f472b6;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+    color: var(--text);
+    background: radial-gradient(ellipse at top, var(--bg2), var(--bg1) 70%) fixed;
+    overflow: hidden;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app {
+    position: relative;
+    max-width: 720px;
+    height: 100%;
+    margin: 0 auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+  }
+  .screen { display: none; flex: 1; flex-direction: column; min-height: 0; }
+  .screen.active { display: flex; }
+
+  /* ---------- タイトル ---------- */
+  #title { justify-content: center; align-items: center; text-align: center; gap: 18px; }
+  #title h1 {
+    font-size: clamp(32px, 8vw, 56px);
+    margin: 0;
+    line-height: 1.15;
+    background: linear-gradient(90deg, var(--gateA), var(--gold), var(--gateB));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,.35));
+  }
+  #title .lead { color: var(--muted); margin: 0; font-size: 15px; }
+  .rules {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    padding: 14px 18px;
+    text-align: left;
+    font-size: 14px;
+    line-height: 1.8;
+    max-width: 440px;
+  }
+  .rules b { color: var(--gold); }
+  .diff-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .btn {
+    border: none;
+    border-radius: 999px;
+    padding: 14px 28px;
+    font: inherit;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1b1f4b;
+    background: linear-gradient(180deg, #fff3b0, var(--gold));
+    box-shadow: 0 6px 0 #c79a12, 0 10px 20px rgba(0,0,0,.3);
+    cursor: pointer;
+    transition: transform .08s;
+  }
+  .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #c79a12; }
+  .btn.ghost {
+    background: var(--panel);
+    color: var(--text);
+    box-shadow: 0 4px 0 rgba(0,0,0,.3);
+    border: 1px solid var(--panel-border);
+  }
+  .btn.small { font-size: 15px; padding: 10px 18px; }
+  .diff-btn.selected { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .best { color: var(--gold); font-size: 14px; min-height: 1em; }
+
+  /* ---------- ゲーム ---------- */
+  .hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .hud .round b { color: var(--text); font-size: 18px; }
+  .hud .streak { color: var(--gold); font-weight: 700; min-width: 5em; text-align: right; }
+  .timer {
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.12);
+    overflow: hidden;
+    margin: 10px 0 14px;
+  }
+  .timer > div {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, var(--good), var(--gold));
+    transform-origin: left center;
+  }
+  .timer.danger > div { background: linear-gradient(90deg, var(--bad), #ff9a5c); }
+
+  .gates { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .gate {
+    position: relative;
+    border: 3px solid var(--c);
+    border-radius: 20px;
+    padding: 18px 8px 16px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--c) 35%, transparent), color-mix(in srgb, var(--c) 10%, transparent));
+    box-shadow: 0 0 24px color-mix(in srgb, var(--c) 45%, transparent), inset 0 0 18px rgba(255,255,255,.08);
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+    text-align: center;
+    transition: transform .12s, opacity .25s, filter .25s;
+  }
+  .gate:hover { transform: translateY(-3px); }
+  .gate:active { transform: scale(.97); }
+  .gate.a { --c: var(--gateA); }
+  .gate.b { --c: var(--gateB); }
+  .gate .label { font-size: 12px; color: var(--muted); letter-spacing: .1em; }
+  .gate .expr {
+    font-size: clamp(26px, 7.5vw, 44px);
+    font-weight: 800;
+    margin: 8px 0 6px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .gate .times { font-size: 15px; color: var(--muted); min-height: 1.4em; }
+  .gate .times b { font-size: 22px; color: var(--text); }
+  .gate .key {
+    position: absolute; top: 8px; right: 10px;
+    font-size: 11px; color: var(--muted);
+    border: 1px solid var(--panel-border); border-radius: 6px; padding: 0 5px;
+  }
+  .gate.dim { opacity: .35; filter: grayscale(.6); }
+  .gate.picked { transform: scale(1.04); }
+  .gate.best-mark::after {
+    content: "👑";
+    position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+    font-size: 26px;
+  }
+  .gates.locked .gate { pointer-events: none; }
+
+  .feedback {
+    height: 44px;
+    margin: 10px 0 4px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: 800;
+    opacity: 0;
+    transform: scale(.8);
+    transition: opacity .2s, transform .2s;
+  }
+  .feedback.show { opacity: 1; transform: scale(1); }
+  .feedback.good { color: var(--good); }
+  .feedback.bad { color: var(--bad); }
+  .feedback.ok { color: var(--gold); }
+
+  .crowd-wrap {
+    flex: 1;
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    position: relative;
+  }
+  .count {
+    font-size: clamp(34px, 10vw, 60px);
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    text-shadow: 0 4px 18px rgba(0,0,0,.4);
+  }
+  .count small { font-size: .4em; color: var(--muted); margin-left: 4px; }
+  .count.pop { animation: pop .35s ease-out; }
+  @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.2); } 100% { transform: scale(1); } }
+  .delta { font-size: 18px; font-weight: 800; min-height: 1.4em; margin-top: 4px; }
+  .delta.up { color: var(--good); }
+  .delta.down { color: var(--bad); }
+  .delta.same { color: var(--muted); }
+  .crowd {
+    display: flex;
+    flex-wrap: wrap-reverse;
+    justify-content: center;
+    align-content: flex-start;
+    gap: 2px 3px;
+    max-width: 100%;
+    padding: 10px 4px 0;
+    min-height: 40px;
+  }
+  .person {
+    width: 14px; height: 22px;
+    position: relative;
+    animation: bob .6s ease-in-out infinite alternate;
+  }
+  .person::before {
+    content: ""; position: absolute; top: 0; left: 3px;
+    width: 8px; height: 8px; border-radius: 50%; background: #ffe0bd;
+  }
+  .person::after {
+    content: ""; position: absolute; top: 9px; left: 1px;
+    width: 12px; height: 13px; border-radius: 6px 6px 3px 3px; background: var(--pc, var(--gateA));
+  }
+  .person.new { animation: join .45s ease-out, bob .6s .45s ease-in-out infinite alternate; }
+  @keyframes bob { from { transform: translateY(0); } to { transform: translateY(-3px); } }
+  @keyframes join { from { transform: translateY(-40px) scale(.2); opacity: 0; } to { transform: none; opacity: 1; } }
+  .scale-note { font-size: 12px; color: var(--muted); min-height: 1.2em; margin-top: 4px; }
+
+  /* ---------- 結果 ---------- */
+  #result { align-items: center; text-align: center; gap: 12px; overflow-y: auto; padding-bottom: 12px; }
+  #result h2 { margin: 8px 0 0; font-size: 22px; color: var(--muted); }
+  .final { font-size: clamp(40px, 12vw, 72px); font-weight: 900; line-height: 1.1; }
+  .final small { font-size: .35em; color: var(--muted); }
+  .rank { font-size: 22px; font-weight: 800; color: var(--gold); }
+  .stats { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .stat {
+    background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 14px; padding: 8px 14px; font-size: 13px; color: var(--muted);
+  }
+  .stat b { display: block; font-size: 18px; color: var(--text); }
+  .new-record { color: var(--gold); font-weight: 800; animation: pop .6s ease-out infinite alternate; }
+  table.history {
+    width: 100%; max-width: 520px;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: var(--panel); border-radius: 14px; overflow: hidden;
+  }
+  .history th, .history td { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .history th { color: var(--muted); font-weight: 600; }
+  .history td.ok { color: var(--good); }
+  .history td.ng { color: var(--bad); }
+  .result-btns { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
+
+  .confetti {
+    position: fixed; top: -20px; width: 10px; height: 14px; pointer-events: none;
+    animation: fall linear forwards; z-index: 10;
+  }
+  @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
+
+  .mute {
+    position: fixed; bottom: 12px; right: 12px; z-index: 5;
+    background: var(--panel); border: 1px solid var(--panel-border);
+    color: var(--text); border-radius: 999px; width: 36px; height: 36px;
+    font-size: 16px; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <button class="mute" id="muteBtn" aria-label="音のオン・オフ">🔊</button>
+
+  <!-- タイトル画面 -->
+  <section class="screen active" id="title">
+    <h1>かけ算ラン！<br>なかま増やしゲーム</h1>
+    <p class="lead">計算して、大きい方のゲートをくぐれ！</p>
+    <div class="rules">
+      ・最初のなかまは <b>1人</b><br>
+      ・毎ラウンド <b>2つのゲート</b>（計算問題）が出るよ<br>
+      ・選んだ問題の <b>答えの数だけ人数が掛け算</b> される<br>
+      ・<b>制限時間</b>を過ぎると小さい方へ強制連行…！<br>
+      ・全 <b>10ラウンド</b>。最後に一番多くのなかまを集めよう<br>
+      ・答えが <b>1より小さい</b> ゲートには要注意
+    </div>
+    <div class="diff-row" id="diffRow">
+      <button class="btn ghost small diff-btn" data-diff="easy">かんたん</button>
+      <button class="btn ghost small diff-btn selected" data-diff="normal">ふつう</button>
+      <button class="btn ghost small diff-btn" data-diff="hard">むずかしい</button>
+    </div>
+    <button class="btn" id="startBtn">スタート！</button>
+    <div class="best" id="bestText"></div>
+  </section>
+
+  <!-- ゲーム画面 -->
+  <section class="screen" id="game">
+    <div class="hud">
+      <div class="round">ラウンド <b id="roundNo">1</b> / <span id="roundMax">10</span></div>
+      <div id="timeText">8.0秒</div>
+      <div class="streak" id="streak"></div>
+    </div>
+    <div class="timer" id="timer"><div id="timerBar"></div></div>
+
+    <div class="gates" id="gates">
+      <button class="gate a" data-idx="0">
+        <span class="key">← / A</span>
+        <div class="label">ゲート A</div>
+        <div class="expr" id="exprA"></div>
+        <div class="times" id="timesA">× ?</div>
+      </button>
+      <button class="gate b" data-idx="1">
+        <span class="key">→ / D</span>
+        <div class="label">ゲート B</div>
+        <div class="expr" id="exprB"></div>
+        <div class="times" id="timesB">× ?</div>
+      </button>
+    </div>
+
+    <div class="feedback" id="feedback"></div>
+
+    <div class="crowd-wrap">
+      <div class="crowd" id="crowd"></div>
+      <div class="scale-note" id="scaleNote"></div>
+      <div class="count" id="count">1<small>人</small></div>
+      <div class="delta" id="delta"></div>
+    </div>
+  </section>
+
+  <!-- 結果画面 -->
+  <section class="screen" id="result">
+    <h2>最終結果</h2>
+    <div class="final" id="finalCount"></div>
+    <div class="rank" id="rankText"></div>
+    <div id="recordText"></div>
+    <div class="stats">
+      <div class="stat">ベスト選択<b id="statCorrect"></b></div>
+      <div class="stat">最大コンボ<b id="statCombo"></b></div>
+      <div class="stat">理論上の最大<b id="statMax"></b></div>
+      <div class="stat">達成率<b id="statRate"></b></div>
+    </div>
+    <table class="history">
+      <thead><tr><th>R</th><th>選んだ問題</th><th>答え</th><th>もう一方</th><th>人数</th></tr></thead>
+      <tbody id="historyBody"></tbody>
+    </table>
+    <div class="result-btns">
+      <button class="btn" id="retryBtn">もう一回！</button>
+      <button class="btn ghost" id="backBtn">タイトルへ</button>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ===== 設定 =====
+  const ROUNDS = 10;
+  const DIFFICULTY = {
+    easy:   { time: 10, levelShift: -1, label: "かんたん" },
+    normal: { time: 8,  levelShift: 0,  label: "ふつう" },
+    hard:   { time: 6,  levelShift: 1,  label: "むずかしい" },
+  };
+  const PERSON_COLORS = ["#38bdf8", "#f472b6", "#a78bfa", "#34d399", "#fbbf24", "#fb923c", "#60a5fa"];
+
+  // ===== ユーティリティ =====
+  const $ = (id) => document.getElementById(id);
+  const rand = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+  function formatNum(n) {
+    if (n < 10000) return n.toLocaleString("ja-JP");
+    const units = [["兆", 1e12], ["億", 1e8], ["万", 1e4]];
+    for (const [u, v] of units) {
+      if (n >= v) {
+        const x = n / v;
+        const s = x >= 100 ? Math.floor(x).toLocaleString("ja-JP") : (Math.floor(x * 10) / 10).toString();
+        return s + u;
+      }
+    }
+    return String(n);
+  }
+  // 1未満の答えは分数で表示（0.333… などを避ける）
+  const fmtAns = (a) => (Number.isInteger(a) ? String(a) : `1/${Math.round(1 / a)}`);
+
+  // ===== 問題生成 =====
+  // レベルが上がるほど式が複雑になり、答えの幅も広がる
+  const TEMPLATES = {
+    1: [
+      () => { const a = rand(1, 5), b = rand(1, 5); return [`${a} + ${b}`, a + b]; },
+      () => { const a = rand(3, 9), b = rand(1, a - 1); return [`${a} − ${b}`, a - b]; },
+      () => { const a = rand(1, 3), b = rand(1, 3); return [`${a} × ${b}`, a * b]; },
+    ],
+    2: [
+      () => { const a = rand(2, 4), b = rand(2, 3); return [`${a} × ${b}`, a * b]; },
+      () => { const b = rand(2, 5), q = rand(1, 5); return [`${b * q} ÷ ${b}`, q]; },
+      () => { const a = rand(2, 9), b = rand(1, 9), c = rand(1, 9); return [`${a} + ${b} − ${c}`, a + b - c]; },
+      () => { const a = rand(10, 19), b = rand(5, 15); return [`${a} − ${b}`, a - b]; },
+    ],
+    3: [
+      () => { const a = rand(2, 6), b = rand(2, 5), c = rand(1, 12); return [`${a} × ${b} − ${c}`, a * b - c]; },
+      () => { const c = rand(2, 5), q = rand(1, 5), a = rand(1, c * q - 1); return [`(${a} + ${c * q - a}) ÷ ${c}`, q]; },
+      () => { const a = rand(1, 4), b = rand(2, 4); return [`${a} ÷ ${a * b}`, 1 / b]; },
+      () => { const a = rand(2, 9), b = rand(1, 3), c = rand(1, 3); return [`${a} − ${b} × ${c}`, a - b * c]; },
+      () => { const b = rand(2, 4), q = rand(2, 6), c = rand(1, 3); return [`${b * q} ÷ ${b} + ${c}`, q + c]; },
+    ],
+    4: [
+      () => { const a = rand(3, 9), b = rand(3, 9), t = rand(1, 9); return [`${a} × ${b} − ${a * b - t}`, t]; },
+      () => { const c = rand(3, 9), q = rand(1, 7), a = rand(2, 19); return [`(${c * q + a} − ${a}) ÷ ${c}`, q]; },
+      () => { const a = rand(1, 6), b = rand(2, 5); return [`${a * 2} ÷ ${a * 2 * b}`, 1 / b]; },
+      () => { const a = rand(2, 5), b = rand(2, 4), c = rand(2, 4), t = rand(1, 9); return [`${a * c} ÷ ${c} × ${b} − ${a * b - t}`, t]; },
+      () => { const a = rand(1, 4), b = rand(1, 4), c = rand(2, 4), t = rand(1, 9); return [`(${a} + ${b}) × ${c} − ${(a + b) * c - t}`, t]; },
+      () => { const a = rand(2, 4), c = rand(1, 5), b = c + rand(1, 3); return [`${a} × (${b} − ${c})`, a * (b - c)]; },
+    ],
+  };
+
+  // 式文字列を安全に評価（数字・演算子・括弧のみ）
+  function evaluate(expr) {
+    const js = expr.replace(/×/g, "*").replace(/÷/g, "/").replace(/−/g, "-");
+    if (!/^[\d\s+\-*/().]+$/.test(js)) throw new Error("bad expr");
+    return Function(`"use strict";return (${js});`)();
+  }
+
+  function levelFor(round, shift) {
+    // ラウンド 1-2: Lv1, 3-5: Lv2, 6-8: Lv3, 9-10: Lv4
+    const base = round <= 2 ? 1 : round <= 5 ? 2 : round <= 8 ? 3 : 4;
+    return Math.min(4, Math.max(1, base + shift));
+  }
+
+  function genProblem(level) {
+    const ranges = { 1: [1, 6], 2: [1, 8], 3: [0.25, 9], 4: [0.2, 9] };
+    const [lo, hi] = ranges[level];
+    for (let i = 0; i < 200; i++) {
+      // たまに一つ下のレベルの式も混ぜる
+      const lv = level > 1 && Math.random() < 0.25 ? level - 1 : level;
+      const [expr, ans] = pick(TEMPLATES[lv])();
+      // 負の数（ASCIIの "-"）や「− 0」が入った式は見た目が悪いので除外
+      if (expr.includes("-") || /− 0(?!\d)/.test(expr)) continue;
+      if (Math.abs(evaluate(expr) - ans) > 1e-9) continue;
+      if (ans < lo || ans > hi) continue;
+      if (!Number.isInteger(ans) && ![0.5, 0.25, 0.2, 1 / 3].some((v) => Math.abs(v - ans) < 1e-9)) continue;
+      if (ans <= 0) continue;
+      return { expr, ans };
+    }
+    return { expr: "2 + 2", ans: 4 };
+  }
+
+  function genPair(level) {
+    for (let i = 0; i < 200; i++) {
+      const p = genProblem(level), q = genProblem(level);
+      if (Math.abs(p.ans - q.ans) < 1e-9 || p.expr === q.expr) continue;
+      // 後半は答えが近い “ひっかけ” を作りやすくする
+      const gap = Math.abs(p.ans - q.ans);
+      if (level >= 3 && gap > 4 && Math.random() < 0.6) continue;
+      return [p, q];
+    }
+    return [{ expr: "1 + 1", ans: 2 }, { expr: "1 + 2", ans: 3 }];
+  }
+
+  // ===== サウンド =====
+  let audioCtx = null;
+  let muted = false;
+  function tone(freq, dur = 0.12, type = "sine", vol = 0.15, delay = 0) {
+    if (muted) return;
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const t = audioCtx.currentTime + delay;
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, t);
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(t);
+      o.stop(t + dur);
+    } catch (e) { /* 音が出せない環境では無視 */ }
+  }
+  const sfx = {
+    good() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.15, "triangle", 0.15, i * 0.07)); },
+    ok()   { [523, 659].forEach((f, i) => tone(f, 0.15, "triangle", 0.12, i * 0.08)); },
+    bad()  { [330, 247].forEach((f, i) => tone(f, 0.22, "sawtooth", 0.08, i * 0.12)); },
+    tick() { tone(880, 0.05, "square", 0.05); },
+    start(){ [392, 523, 659, 784].forEach((f, i) => tone(f, 0.12, "square", 0.07, i * 0.09)); },
+    end()  { [523, 659, 784, 659, 784, 1047].forEach((f, i) => tone(f, 0.18, "triangle", 0.13, i * 0.12)); },
+  };
+
+  // ===== 状態 =====
+  const state = {
+    diff: "normal",
+    round: 0,
+    members: 1,
+    pair: null,
+    locked: true,
+    deadline: 0,
+    timeLimit: 8,
+    rafId: 0,
+    lastTickSec: null,
+    streak: 0,
+    maxStreak: 0,
+    correct: 0,
+    idealMax: 1,
+    history: [],
+  };
+
+  const bestKey = (d) => `mathgame.best.${d}`;
+  function loadBest(d) {
+    try { return Number(localStorage.getItem(bestKey(d))) || 0; } catch (e) { return 0; }
+  }
+  function saveBest(d, v) {
+    try { localStorage.setItem(bestKey(d), String(v)); } catch (e) { /* 保存できなくても続行 */ }
+  }
+
+  // ===== 画面切り替え =====
+  function show(id) {
+    document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("active", s.id === id));
+  }
+
+  function refreshBest() {
+    const b = loadBest(state.diff);
+    $("bestText").textContent = b ? `${DIFFICULTY[state.diff].label}のベスト記録：${formatNum(b)}人` : "";
+  }
+
+  // ===== なかまの表示 =====
+  function iconCount(n) {
+    if (n <= 40) return Math.max(1, Math.floor(n));
+    return Math.min(160, Math.round(40 + 30 * Math.log10(n / 40)));
+  }
+  function renderCrowd(n, animateNew) {
+    const crowd = $("crowd");
+    const target = iconCount(n);
+    const cur = crowd.children.length;
+    if (target > cur) {
+      for (let i = cur; i < target; i++) {
+        const p = document.createElement("div");
+        p.className = "person" + (animateNew ? " new" : "");
+        p.style.setProperty("--pc", PERSON_COLORS[i % PERSON_COLORS.length]);
+        p.style.animationDelay = animateNew ? `${Math.min(0.6, (i - cur) * 0.015)}s, ${0.45 + Math.random() * 0.4}s` : `${Math.random() * 0.6}s`;
+        crowd.appendChild(p);
+      }
+    } else {
+      while (crowd.children.length > target) crowd.lastChild.remove();
+    }
+    $("scaleNote").textContent = n > 40 ? `（アイコンは目安。実際は ${formatNum(n)} 人！）` : "";
+  }
+
+  function animateCount(from, to) {
+    const el = $("count");
+    const start = performance.now();
+    const dur = 600;
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / dur);
+      const e = 1 - Math.pow(1 - t, 3);
+      const v = Math.round(from + (to - from) * e);
+      el.innerHTML = `${formatNum(v)}<small>人</small>`;
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+    el.classList.remove("pop");
+    void el.offsetWidth;
+    el.classList.add("pop");
+  }
+
+  // ===== ゲーム進行 =====
+  function startGame() {
+    Object.assign(state, {
+      round: 0, members: 1, streak: 0, maxStreak: 0, correct: 0, idealMax: 1, history: [],
+      timeLimit: DIFFICULTY[state.diff].time,
+    });
+    $("roundMax").textContent = ROUNDS;
+    $("crowd").innerHTML = "";
+    $("count").innerHTML = `1<small>人</small>`;
+    $("delta").textContent = "";
+    $("streak").textContent = "";
+    renderCrowd(1, true);
+    show("game");
+    sfx.start();
+    setTimeout(nextRound, 500);
+  }
+
+  function nextRound() {
+    state.round++;
+    if (state.round > ROUNDS) return finish();
+    const level = levelFor(state.round, DIFFICULTY[state.diff].levelShift);
+    state.pair = genPair(level);
+    // 後半ほど少しずつ制限時間が短くなる
+    const limit = Math.max(3.5, state.timeLimit - (state.round - 1) * 0.25);
+    state.curLimit = limit;
+
+    $("roundNo").textContent = state.round;
+    $("exprA").textContent = state.pair[0].expr;
+    $("exprB").textContent = state.pair[1].expr;
+    $("timesA").innerHTML = "× ?";
+    $("timesB").innerHTML = "× ?";
+    document.querySelectorAll(".gate").forEach((g) => g.classList.remove("dim", "picked", "best-mark"));
+    $("gates").classList.remove("locked");
+    $("feedback").className = "feedback";
+    $("delta").textContent = "";
+
+    state.locked = false;
+    state.deadline = performance.now() + limit * 1000;
+    state.lastTickSec = null;
+    cancelAnimationFrame(state.rafId);
+    state.rafId = requestAnimationFrame(tickTimer);
+  }
+
+  function tickTimer(now) {
+    if (state.locked) return;
+    const remain = Math.max(0, state.deadline - now) / 1000;
+    const ratio = remain / state.curLimit;
+    $("timerBar").style.transform = `scaleX(${ratio})`;
+    $("timer").classList.toggle("danger", remain <= 3);
+    $("timeText").textContent = `${remain.toFixed(1)}秒`;
+    const sec = Math.ceil(remain);
+    if (remain <= 3 && sec !== state.lastTickSec && sec > 0) { sfx.tick(); state.lastTickSec = sec; }
+    if (remain <= 0) return choose(null);
+    state.rafId = requestAnimationFrame(tickTimer);
+  }
+
+  function choose(idx) {
+    if (state.locked) return;
+    state.locked = true;
+    cancelAnimationFrame(state.rafId);
+    $("gates").classList.add("locked");
+
+    const [p, q] = state.pair;
+    const bestIdx = p.ans > q.ans ? 0 : 1;
+    const timeout = idx === null;
+    if (timeout) idx = 1 - bestIdx; // 時間切れは小さい方へ
+    const chosen = state.pair[idx], other = state.pair[1 - idx];
+    const isBest = idx === bestIdx && !timeout;
+
+    // 答えを公開
+    $("timesA").innerHTML = `= <b>${fmtAns(p.ans)}</b>`;
+    $("timesB").innerHTML = `= <b>${fmtAns(q.ans)}</b>`;
+    const gates = document.querySelectorAll(".gate");
+    gates[idx].classList.add("picked");
+    gates[1 - idx].classList.add("dim");
+    gates[bestIdx].classList.add("best-mark");
+
+    const before = state.members;
+    const after = Math.max(1, Math.floor(before * chosen.ans));
+    state.members = after;
+    state.idealMax = Math.max(1, Math.floor(state.idealMax * Math.max(p.ans, q.ans)));
+
+    if (isBest) {
+      state.correct++;
+      state.streak++;
+      state.maxStreak = Math.max(state.maxStreak, state.streak);
+    } else {
+      state.streak = 0;
+    }
+    $("streak").textContent = state.streak >= 2 ? `🔥 ${state.streak}コンボ` : "";
+
+    const fb = $("feedback");
+    if (timeout) {
+      fb.textContent = "⏰ 時間切れ！小さい方へ…";
+      fb.className = "feedback show bad";
+      sfx.bad();
+    } else if (isBest) {
+      fb.textContent = pick(["ナイス！", "完璧！", "ベストチョイス！", "さすが！", "いいね！"]);
+      fb.className = "feedback show good";
+      sfx.good();
+    } else {
+      fb.textContent = "おしい…もう一方が大きかった";
+      fb.className = "feedback show ok";
+      sfx.bad();
+    }
+
+    const d = $("delta");
+    if (after > before) { d.textContent = `× ${fmtAns(chosen.ans)} → +${formatNum(after - before)}人`; d.className = "delta up"; }
+    else if (after < before) { d.textContent = `× ${fmtAns(chosen.ans)} → −${formatNum(before - after)}人`; d.className = "delta down"; }
+    else { d.textContent = `× ${fmtAns(chosen.ans)} → 変化なし`; d.className = "delta same"; }
+
+    animateCount(before, after);
+    renderCrowd(after, after > before);
+
+    state.history.push({
+      round: state.round, expr: chosen.expr, ans: chosen.ans,
+      otherExpr: other.expr, otherAns: other.ans, members: after, isBest, timeout,
+    });
+
+    setTimeout(nextRound, 1500);
+  }
+
+  // ===== 結果 =====
+  function rankFor(rate, n) {
+    if (rate >= 1) return "👑 計算の神！パーフェクト！";
+    if (rate >= 0.5) return "🏆 カリスマリーダー";
+    if (rate >= 0.15) return "🎖 頼れるキャプテン";
+    if (rate >= 0.03) return "⭐ がんばり屋さん";
+    if (n >= 10) return "🌱 なかま集め見習い";
+    return "🐣 ひとりぼっち卒業を目指そう";
+  }
+
+  function finish() {
+    show("result");
+    sfx.end();
+    const n = state.members;
+    const rate = state.idealMax ? n / state.idealMax : 0;
+    $("finalCount").innerHTML = `${formatNum(n)}<small>人</small>`;
+    $("rankText").textContent = rankFor(rate, n);
+    $("statCorrect").textContent = `${state.correct} / ${ROUNDS}`;
+    $("statCombo").textContent = `${state.maxStreak}`;
+    $("statMax").textContent = `${formatNum(state.idealMax)}人`;
+    $("statRate").textContent = `${(rate * 100).toFixed(rate >= 0.1 ? 0 : 1)}%`;
+
+    const prev = loadBest(state.diff);
+    if (n > prev) {
+      saveBest(state.diff, n);
+      $("recordText").innerHTML = `<span class="new-record">🎉 自己ベスト更新！（${DIFFICULTY[state.diff].label}）</span>`;
+      confetti();
+    } else {
+      $("recordText").textContent = `自己ベスト（${DIFFICULTY[state.diff].label}）：${formatNum(prev)}人`;
+    }
+    if (rate >= 1) confetti();
+
+    $("historyBody").innerHTML = state.history.map((h) => `
+      <tr>
+        <td>${h.round}</td>
+        <td>${h.expr}${h.timeout ? " ⏰" : ""}</td>
+        <td class="${h.isBest ? "ok" : "ng"}">${fmtAns(h.ans)}</td>
+        <td>${h.otherExpr} = ${fmtAns(h.otherAns)}</td>
+        <td>${formatNum(h.members)}</td>
+      </tr>`).join("");
+  }
+
+  function confetti() {
+    for (let i = 0; i < 80; i++) {
+      const c = document.createElement("div");
+      c.className = "confetti";
+      c.style.left = `${Math.random() * 100}vw`;
+      c.style.background = pick(PERSON_COLORS.concat(["#ffd34d"]));
+      c.style.animationDuration = `${2 + Math.random() * 2}s`;
+      c.style.animationDelay = `${Math.random() * 0.8}s`;
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 5000);
+    }
+  }
+
+  // ===== 入力 =====
+  document.querySelectorAll(".gate").forEach((g) =>
+    g.addEventListener("click", () => choose(Number(g.dataset.idx))));
+
+  document.addEventListener("keydown", (e) => {
+    if ($("game").classList.contains("active")) {
+      if (["ArrowLeft", "a", "A", "1"].includes(e.key)) choose(0);
+      if (["ArrowRight", "d", "D", "2"].includes(e.key)) choose(1);
+    } else if (e.key === "Enter") {
+      if ($("title").classList.contains("active") || $("result").classList.contains("active")) startGame();
+    }
+  });
+
+  document.querySelectorAll(".diff-btn").forEach((b) =>
+    b.addEventListener("click", () => {
+      state.diff = b.dataset.diff;
+      document.querySelectorAll(".diff-btn").forEach((x) => x.classList.toggle("selected", x === b));
+      refreshBest();
+    }));
+
+  $("startBtn").addEventListener("click", startGame);
+  $("retryBtn").addEventListener("click", startGame);
+  $("backBtn").addEventListener("click", () => { refreshBest(); show("title"); });
+  $("muteBtn").addEventListener("click", () => {
+    muted = !muted;
+    $("muteBtn").textContent = muted ? "🔇" : "🔊";
+  });
+
+  refreshBest();
+
+  // テスト・デバッグ用
+  window.__mathGame = { genPair, genProblem, evaluate, levelFor, state };
+})();
+</script>
+</body>
+</html>
