@@ -89,7 +89,8 @@
     border: 1px solid var(--panel-border);
   }
   .btn.small { font-size: 15px; padding: 10px 18px; }
-  .diff-btn.selected, .speed-btn.selected { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .mode-btn small { display: block; font-size: 11px; font-weight: 600; opacity: .75; }
+  .diff-btn.selected, .speed-btn.selected, .mode-btn.selected { outline: 3px solid var(--gold); outline-offset: 2px; }
   .setting { display: flex; flex-direction: column; align-items: center; gap: 8px; }
   .setting-label { font-size: 13px; color: var(--muted); letter-spacing: .1em; }
   .diff-btn small { display: block; font-size: 11px; font-weight: 600; opacity: .75; }
@@ -181,6 +182,19 @@
   .history .frac { font-size: .8em; }
   .history .q { display: block; color: var(--muted); font-size: .9em; }
   .history .bigop .lims, .history .lim > span:last-child, .history .sigma > span:nth-child(odd) { font-size: .6em; }
+  .gate .op {
+    display: none;
+    margin: 6px auto 0; width: fit-content;
+    padding: 0 12px; border-radius: 999px;
+    font-size: 22px; font-weight: 700; line-height: 1.4;
+    font-variant-emoji: text;
+  }
+  .endless .gate .op { display: block; }
+  .op.good { background: color-mix(in srgb, var(--good) 25%, transparent); color: var(--good); }
+  .op.bad { background: color-mix(in srgb, var(--bad) 25%, transparent); color: var(--bad); }
+  .op small { font-size: 12px; font-weight: 700; margin-left: 4px; }
+  .hop { font-weight: 700; margin-right: 2px; font-variant-emoji: text; }
+  .hop.bad { color: var(--bad); }
   .gate .times { font-size: 15px; color: var(--muted); min-height: 1.4em; }
   .gate .times b { font-size: 22px; color: var(--text); }
   .gate .key {
@@ -274,6 +288,7 @@
   .final { font-size: clamp(40px, 12vw, 72px); font-weight: 900; line-height: 1.1; }
   .final small { font-size: .35em; color: var(--muted); }
   .rank { font-size: 22px; font-weight: 800; color: var(--gold); }
+  .stat[hidden] { display: none; }
   .stats { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
   .stat {
     background: var(--panel); border: 1px solid var(--panel-border);
@@ -334,11 +349,16 @@
     <h1>かけ算ラン！<br>なかま増やしゲーム</h1>
     <p class="lead">計算して、大きい方のゲートをくぐれ！</p>
     <div class="rules">
-      ・最初のなかまは <b>1人</b>。全 <b>10ラウンド</b><br>
-      ・2つの計算問題から1つを選ぶと<br>
-      　<b>今の人数 × 答え</b> になる<br>
-      ・<b>時間切れ</b>は小さい方へ強制連行…！<br>
-      ・答えが <b>1より小さい</b> ゲートに注意
+      ・<b>1人</b>から、2つの計算問題の片方を選ぶ<br>
+      ・<b>今の人数 × 答え</b> になる。時間切れに注意<br>
+      ・エンドレスは <b>＋ − ÷</b> も登場。<b>1人以下</b>で終了
+    </div>
+    <div class="setting">
+      <div class="setting-label">モード</div>
+      <div class="diff-row">
+        <button class="btn ghost small mode-btn selected" data-mode="classic">10ラウンド<small>最後の人数を競う</small></button>
+        <button class="btn ghost small mode-btn" data-mode="endless">エンドレス<small>1人以下で終了・＋−÷も</small></button>
+      </div>
     </div>
     <div class="setting">
       <div class="setting-label">問題のレベル</div>
@@ -364,7 +384,7 @@
   <!-- ゲーム画面 -->
   <section class="screen" id="game">
     <div class="hud">
-      <div class="round">ラウンド <b id="roundNo">1</b> / <span id="roundMax">10</span></div>
+      <div class="round">ラウンド <b id="roundNo">1</b><span id="roundMaxWrap"> / <span id="roundMax">10</span></span></div>
       <div id="timeText">8.0秒</div>
       <div class="streak" id="streak"></div>
     </div>
@@ -374,12 +394,14 @@
       <button class="gate a" data-idx="0">
         <span class="key">← / A</span>
         <div class="label">ゲート A</div>
+        <div class="op" id="opA"></div>
         <div class="expr" id="exprA"></div>
         <div class="times" id="timesA">× ?</div>
       </button>
       <button class="gate b" data-idx="1">
         <span class="key">→ / D</span>
         <div class="label">ゲート B</div>
+        <div class="op" id="opB"></div>
         <div class="expr" id="exprB"></div>
         <div class="times" id="timesB">× ?</div>
       </button>
@@ -404,8 +426,9 @@
     <div class="stats">
       <div class="stat">ベスト選択<b id="statCorrect"></b></div>
       <div class="stat">最大コンボ<b id="statCombo"></b></div>
-      <div class="stat">理論上の最大<b id="statMax"></b></div>
-      <div class="stat">達成率<b id="statRate"></b></div>
+      <div class="stat" id="statMaxBox">理論上の最大<b id="statMax"></b></div>
+      <div class="stat" id="statRateBox">達成率<b id="statRate"></b></div>
+      <div class="stat" id="statPeakBox" hidden>最大人数<b id="statPeak"></b></div>
     </div>
     <table class="history">
       <thead><tr><th>R</th><th>選んだ問題</th><th>答え</th><th>もう一方</th><th>人数</th></tr></thead>
@@ -440,9 +463,20 @@
     normal: { mult: 1,   label: "ふつう" },
     fast:   { mult: 0.6, label: "はやい" },
   };
-  // ラウンドが進むごとに制限時間を少しずつ短くする（最終ラウンドで約73%）
-  const roundLimit = (diff, speed, round) =>
-    DIFFICULTY[diff].time * SPEED[speed].mult * (1 - 0.03 * (round - 1));
+  // ラウンドが進むごとに制限時間を少しずつ短くする
+  // 10ラウンド：最終ラウンドで約73%／エンドレス：最短40%まで
+  const roundLimit = (diff, speed, round, mode = "classic") =>
+    DIFFICULTY[diff].time * SPEED[speed].mult *
+    (mode === "endless" ? Math.max(0.4, 1 - 0.025 * (round - 1)) : 1 - 0.03 * (round - 1));
+
+  // ゲートの演算。エンドレスでは × 以外に ＋ − ÷ も出る
+  const OPS = {
+    "×": { word: "かける", apply: (m, a) => Math.floor(m * a) },
+    "+": { word: "たす",   apply: (m, a) => m + a },
+    "−": { word: "ひく",   apply: (m, a) => Math.max(0, m - a) },
+    "÷": { word: "わる",   apply: (m, a) => Math.floor(m / a) },
+  };
+  const isHarmful = (p) => p.op === "−" || p.op === "÷" || (p.op === "×" && p.ans < 1);
   const PERSON_COLORS = ["#38bdf8", "#f472b6", "#a78bfa", "#34d399", "#fbbf24", "#fb923c", "#60a5fa"];
 
   // ===== ユーティリティ =====
@@ -662,6 +696,29 @@
     return { expr: "2 + 2", ans: 4 };
   }
 
+  // エンドレス：ラウンドが進むほど − ÷ や 1未満の × が増え、最後は必ず減っていく。
+  // ＋ − は人数が少ないとき（50人以下）だけ出す（多いときは誤差にしかならないため）
+  function genEndlessPair(diff, round, members) {
+    const harmRate = round <= 3 ? 0 : Math.min(0.97, 0.15 + 0.045 * (round - 4));
+    const small = members <= 50;
+    for (let i = 0; i < 100; i++) {
+      const pair = genPair(diff, round).map((p) => ({ ...p }));
+      if (round <= 3 && pair.some((p) => p.ans < 1)) continue;
+      let ok = true;
+      for (const p of pair) {
+        if (p.ans < 1) p.op = "×";
+        else if (Math.random() < harmRate) {
+          if (p.ans >= 2 && (!small || Math.random() < 0.45)) p.op = "÷";
+          else if (small) p.op = "−";
+          else ok = false;
+        } else p.op = p.ans >= 2 && (!small || Math.random() < 0.6) ? "×" : small ? "+" : (ok = false, "×");
+      }
+      if (!ok || (pair[0].op === pair[1].op && pair[0].ans === pair[1].ans)) continue;
+      return pair;
+    }
+    return [{ expr: "1 + 1", ans: 2, op: "×" }, { expr: "1 + 2", ans: 3, op: "+" }];
+  }
+
   function genPair(diff, round) {
     const level = levelFor(round);
     const gen = diff === "easy" ? () => genProblem(level) : () => genAdvanced(diff, round);
@@ -707,6 +764,7 @@
 
   // ===== 状態 =====
   const state = {
+    mode: "classic",
     diff: "easy",
     speed: "normal",
     round: 0,
@@ -723,9 +781,12 @@
     history: [],
   };
 
-  // ベスト記録は「問題のレベル × スピード」の組み合わせごと
-  const bestKey = () => `mathgame.best.${state.diff}.${state.speed}`;
-  const modeLabel = () => `${DIFFICULTY[state.diff].label}・${SPEED[state.speed].label}`;
+  // ベスト記録は「モード × 問題のレベル × スピード」の組み合わせごと
+  // （10ラウンドは最終人数、エンドレスは到達ラウンド）
+  const endless = () => state.mode === "endless";
+  const bestKey = () => `mathgame.${endless() ? "endless" : "best"}.${state.diff}.${state.speed}`;
+  const modeLabel = () => `${endless() ? "エンドレス・" : ""}${DIFFICULTY[state.diff].label}・${SPEED[state.speed].label}`;
+  const bestText = (v) => (endless() ? `ラウンド ${v}` : `${formatNum(v)}人`);
   function loadBest() {
     try { return Number(localStorage.getItem(bestKey())) || 0; } catch (e) { return 0; }
   }
@@ -740,13 +801,16 @@
 
   function refreshBest() {
     const b = loadBest();
-    $("bestText").textContent = b ? `${modeLabel()}のベスト記録：${formatNum(b)}人` : "";
-    const first = roundLimit(state.diff, state.speed, 1), last = roundLimit(state.diff, state.speed, ROUNDS);
-    $("timeInfo").textContent = `制限時間：${first.toFixed(1)}秒 → 最終ラウンド ${last.toFixed(1)}秒`;
+    $("bestText").textContent = b ? `${modeLabel()}のベスト記録：${bestText(b)}` : "";
+    const first = roundLimit(state.diff, state.speed, 1, state.mode);
+    $("timeInfo").textContent = endless()
+      ? `制限時間：${first.toFixed(1)}秒 → だんだん短く（最短 ${roundLimit(state.diff, state.speed, 999, "endless").toFixed(1)}秒）`
+      : `制限時間：${first.toFixed(1)}秒 → 最終ラウンド ${roundLimit(state.diff, state.speed, ROUNDS).toFixed(1)}秒`;
   }
 
   // ===== なかまの表示 =====
   function iconCount(n) {
+    if (n <= 0) return 0;
     if (n <= 40) return Math.max(1, Math.floor(n));
     return Math.min(160, Math.round(40 + 30 * Math.log10(n / 40)));
   }
@@ -800,9 +864,11 @@
   // ===== ゲーム進行 =====
   function startGame() {
     Object.assign(state, {
-      round: 0, members: 1, streak: 0, maxStreak: 0, correct: 0, idealMax: 1, history: [],
+      round: 0, members: 1, peak: 1, streak: 0, maxStreak: 0, correct: 0, idealMax: 1, history: [],
     });
     $("roundMax").textContent = ROUNDS;
+    $("roundMaxWrap").hidden = endless();
+    $("game").classList.toggle("endless", endless());
     $("crowd").innerHTML = "";
     $("count").innerHTML = `1<small>人</small>`;
     $("delta").textContent = "";
@@ -815,10 +881,12 @@
 
   function nextRound() {
     state.round++;
-    if (state.round > ROUNDS) return finish();
-    state.pair = genPair(state.diff, state.round);
+    if (!endless() && state.round > ROUNDS) return finish();
+    state.pair = endless()
+      ? genEndlessPair(state.diff, state.round, state.members)
+      : genPair(state.diff, state.round).map((p) => ({ ...p, op: "×" }));
     // 後半ほど少しずつ制限時間が短くなる
-    const limit = roundLimit(state.diff, state.speed, state.round);
+    const limit = roundLimit(state.diff, state.speed, state.round, state.mode);
     state.curLimit = limit;
 
     $("roundNo").textContent = state.round;
@@ -827,8 +895,12 @@
     $("exprA").innerHTML = thin(state.pair[0].expr);
     $("exprB").innerHTML = thin(state.pair[1].expr);
     fitExprs();
-    $("timesA").innerHTML = "× ?";
-    $("timesB").innerHTML = "× ?";
+    ["A", "B"].forEach((x, i) => {
+      const p = state.pair[i];
+      $(`op${x}`).innerHTML = `${p.op}<small>${OPS[p.op].word}</small>`;
+      $(`op${x}`).className = `op ${isHarmful(p) ? "bad" : "good"}`;
+      $(`times${x}`).innerHTML = endless() ? "?" : "× ?";
+    });
     document.querySelectorAll(".gate").forEach((g) => g.classList.remove("dim", "picked", "best-mark"));
     $("gates").classList.remove("locked");
     $("feedback").className = "feedback";
@@ -861,11 +933,15 @@
     $("gates").classList.add("locked");
 
     const [p, q] = state.pair;
-    const bestIdx = p.ans > q.ans ? 0 : 1;
+    const before = state.members;
+    // 選んだあとの人数で良し悪しを決める（エンドレスでは演算によって変わる）
+    const outcome = state.pair.map((g) => OPS[g.op].apply(before, g.ans));
+    const bestIdx = outcome[0] >= outcome[1] ? 0 : 1;
     const timeout = idx === null;
-    if (timeout) idx = 1 - bestIdx; // 時間切れは小さい方へ
+    if (timeout) idx = 1 - bestIdx; // 時間切れは少なくなる方へ
     const chosen = state.pair[idx], other = state.pair[1 - idx];
-    const isBest = idx === bestIdx && !timeout;
+    const chosenBetter = outcome[idx] >= outcome[1 - idx];
+    const isBest = chosenBetter && !timeout;
 
     // 答えを公開
     $("timesA").innerHTML = `= <b>${fmtAns(p.ans)}</b>`;
@@ -873,12 +949,13 @@
     const gates = document.querySelectorAll(".gate");
     gates[idx].classList.add("picked");
     gates[1 - idx].classList.add("dim");
-    gates[bestIdx].classList.add("best-mark");
+    gates.forEach((g, i) => { if (outcome[i] === Math.max(...outcome)) g.classList.add("best-mark"); });
 
-    const before = state.members;
-    const after = Math.max(1, Math.floor(before * chosen.ans));
+    const after = endless() ? outcome[idx] : Math.max(1, outcome[idx]);
     state.members = after;
+    state.peak = Math.max(state.peak, after);
     state.idealMax = Math.max(1, Math.floor(state.idealMax * Math.max(p.ans, q.ans)));
+    const gameOver = endless() && after <= 1;
 
     if (isBest) {
       state.correct++;
@@ -890,8 +967,12 @@
     $("streak").textContent = state.streak >= 2 ? `🔥 ${state.streak}コンボ` : "";
 
     const fb = $("feedback");
-    if (timeout) {
-      fb.textContent = "⏰ 時間切れ！小さい方へ…";
+    if (gameOver) {
+      fb.textContent = "💀 なかまが1人以下に…ゲームオーバー";
+      fb.className = "feedback show bad";
+      sfx.bad();
+    } else if (timeout) {
+      fb.textContent = endless() ? "⏰ 時間切れ！少なくなる方へ…" : "⏰ 時間切れ！小さい方へ…";
       fb.className = "feedback show bad";
       sfx.bad();
     } else if (isBest) {
@@ -899,26 +980,28 @@
       fb.className = "feedback show good";
       sfx.good();
     } else {
-      fb.textContent = "おしい…もう一方が大きかった";
+      fb.textContent = endless() ? "おしい…もう一方が正解" : "おしい…もう一方が大きかった";
       fb.className = "feedback show ok";
       sfx.bad();
     }
 
     const d = $("delta");
-    if (after > before) { d.textContent = `× ${fmtAns(chosen.ans)} → +${formatNum(after - before)}人`; d.className = "delta up"; }
-    else if (after < before) { d.textContent = `× ${fmtAns(chosen.ans)} → −${formatNum(before - after)}人`; d.className = "delta down"; }
-    else { d.textContent = `× ${fmtAns(chosen.ans)} → 変化なし`; d.className = "delta same"; }
+    const opText = `${chosen.op} ${fmtAns(chosen.ans)}`;
+    if (after > before) { d.textContent = `${opText} → +${formatNum(after - before)}人`; d.className = "delta up"; }
+    else if (after < before) { d.textContent = `${opText} → −${formatNum(before - after)}人`; d.className = "delta down"; }
+    else { d.textContent = `${opText} → 変化なし`; d.className = "delta same"; }
 
     animateCount(before, after);
     renderCrowd(after, after > before);
 
     state.history.push({
-      round: state.round, expr: chosen.expr, ans: chosen.ans,
-      otherExpr: other.expr, otherAns: other.ans, members: after, isBest, timeout,
-      expl: chosen.expl, otherExpl: other.expl,
+      round: state.round, expr: chosen.expr, ans: chosen.ans, op: chosen.op,
+      otherExpr: other.expr, otherAns: other.ans, otherOp: other.op, members: after, isBest, timeout,
+      chosenBetter, expl: chosen.expl, otherExpl: other.expl,
     });
 
-    setTimeout(nextRound, 1500);
+    if (gameOver) setTimeout(finish, 2200);
+    else setTimeout(nextRound, 1500);
   }
 
   // ===== 結果 =====
@@ -931,52 +1014,73 @@
     return "🐣 ひとりぼっち卒業を目指そう";
   }
 
+  function rankForEndless(rounds) {
+    if (rounds >= 35) return "👑 不死身のリーダー";
+    if (rounds >= 28) return "🏆 サバイバルの達人";
+    if (rounds >= 20) return "🎖 しぶといキャプテン";
+    if (rounds >= 12) return "⭐ がんばり屋さん";
+    return "🌱 もう一回チャレンジ！";
+  }
+
   function finish() {
     show("result");
     sfx.end();
     const n = state.members;
     const rate = state.idealMax ? n / state.idealMax : 0;
-    $("finalCount").innerHTML = `${formatNum(n)}<small>人</small>`;
-    $("rankText").textContent = rankFor(rate, n);
-    $("statCorrect").textContent = `${state.correct} / ${ROUNDS}`;
+    const rounds = state.history.length;
     $("statCombo").textContent = `${state.maxStreak}`;
-    $("statMax").textContent = `${formatNum(state.idealMax)}人`;
-    $("statRate").textContent = `${(rate * 100).toFixed(rate >= 0.1 ? 0 : 1)}%`;
+    $("statMaxBox").hidden = $("statRateBox").hidden = endless();
+    $("statPeakBox").hidden = !endless();
+    if (endless()) {
+      $("finalCount").innerHTML = `${rounds}<small>ラウンド到達</small>`;
+      $("rankText").textContent = rankForEndless(rounds);
+      $("statCorrect").textContent = `${state.correct} / ${rounds}`;
+      $("statPeak").textContent = `${formatNum(state.peak)}人`;
+    } else {
+      $("finalCount").innerHTML = `${formatNum(n)}<small>人</small>`;
+      $("rankText").textContent = rankFor(rate, n);
+      $("statCorrect").textContent = `${state.correct} / ${ROUNDS}`;
+      $("statMax").textContent = `${formatNum(state.idealMax)}人`;
+      $("statRate").textContent = `${(rate * 100).toFixed(rate >= 0.1 ? 0 : 1)}%`;
+    }
 
+    const score = endless() ? rounds : n;
     const prev = loadBest();
-    if (n > prev) {
-      saveBest(n);
+    if (score > prev) {
+      saveBest(score);
       $("recordText").innerHTML = `<span class="new-record">🎉 自己ベスト更新！（${modeLabel()}）</span>`;
       confetti();
     } else {
-      $("recordText").textContent = `自己ベスト（${modeLabel()}）：${formatNum(prev)}人`;
+      $("recordText").textContent = `自己ベスト（${modeLabel()}）：${bestText(prev)}`;
     }
-    if (rate >= 1) confetti();
+    if (!endless() && rate >= 1) confetti();
 
+    // エンドレスでは演算記号も表示
+    const hop = (op, ans) => (endless() ? `<span class="hop${isHarmful({ op, ans }) ? " bad" : ""}">${op}</span>` : "");
     $("historyBody").innerHTML = state.history.map((h) => `
       <tr>
         <td>${h.round}</td>
-        <td>${h.expr}${h.timeout ? " ⏰" : ""}</td>
+        <td>${hop(h.op, h.ans)}${h.expr}${h.timeout ? " ⏰" : ""}</td>
         <td class="${h.isBest ? "ok" : "ng"}">${fmtAns(h.ans)}</td>
-        <td>${h.otherExpr} = ${fmtAns(h.otherAns)}</td>
+        <td>${hop(h.otherOp, h.otherAns)}${h.otherExpr} = ${fmtAns(h.otherAns)}</td>
         <td>${formatNum(h.members)}</td>
       </tr>`).join("");
 
     // むずかしい問題には解き方の解説をつける
     const withExpl = state.history.filter((h) => h.expl);
     $("explain").hidden = withExpl.length === 0;
-    const item = (expr, ans, expl, mark) => `
+    const item = (expr, ans, expl, mark, op) => `
       <div class="ex-item">
-        <div class="ex-q">${mark} ${expr} = <b>${fmtAns(ans)}</b></div>
+        <div class="ex-q">${mark} ${expr} = <b>${fmtAns(ans)}</b>${endless() ? `<small>（ゲートは ${op} ${fmtAns(ans)}）</small>` : ""}</div>
         <div class="ex-a">${expl}</div>
       </div>`;
     $("explainList").innerHTML = withExpl.map((h) => {
-      const bigger = h.ans > h.otherAns;
+      const bigger = h.chosenBetter;
       return `
       <details class="ex-round"${h.isBest ? "" : " open"}>
         <summary>ラウンド ${h.round}<span class="${h.isBest ? "ok" : "ng"}">${h.isBest ? "◎ 正解" : h.timeout ? "⏰ 時間切れ" : "× 不正解"}</span></summary>
-        ${item(h.expr, h.ans, h.expl, bigger ? "👑 選んだ問題" : "選んだ問題")}
-        ${item(h.otherExpr, h.otherAns, h.otherExpl, bigger ? "もう一方" : "👑 もう一方")}
+        ${item(h.expr, h.ans, h.expl, bigger ? "👑 選んだ問題" : "選んだ問題", h.op)}
+        ${item(h.otherExpr, h.otherAns, h.otherExpl, bigger ? "もう一方" : "👑 もう一方", h.otherOp)}
       </details>`;
     }).join("");
   }
@@ -1013,6 +1117,12 @@
       document.querySelectorAll(".diff-btn").forEach((x) => x.classList.toggle("selected", x === b));
       refreshBest();
     }));
+  document.querySelectorAll(".mode-btn").forEach((b) =>
+    b.addEventListener("click", () => {
+      state.mode = b.dataset.mode;
+      document.querySelectorAll(".mode-btn").forEach((x) => x.classList.toggle("selected", x === b));
+      refreshBest();
+    }));
   document.querySelectorAll(".speed-btn").forEach((b) =>
     b.addEventListener("click", () => {
       state.speed = b.dataset.speed;
@@ -1031,7 +1141,7 @@
   refreshBest();
 
   // テスト・デバッグ用
-  window.__mathGame = { genPair, genProblem, genAdvanced, evaluate, levelFor, roundLimit, fmtAns, state };
+  window.__mathGame = { genEndlessPair, OPS, genPair, genProblem, genAdvanced, evaluate, levelFor, roundLimit, fmtAns, state };
 })();
 </script>
 </body>
