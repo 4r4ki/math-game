@@ -41,7 +41,10 @@
   .screen.active { display: flex; }
 
   /* ---------- タイトル ---------- */
-  #title { justify-content: center; align-items: center; text-align: center; gap: 18px; }
+  #title { align-items: center; text-align: center; gap: 16px; overflow-y: auto; padding-bottom: 8px; }
+  /* 画面より縦に長いときも上が切れないよう、余白で中央寄せする */
+  #title > :first-child { margin-top: auto; }
+  #title > :last-child { margin-bottom: auto; }
   #title h1 {
     font-size: clamp(32px, 8vw, 56px);
     margin: 0;
@@ -86,7 +89,11 @@
     border: 1px solid var(--panel-border);
   }
   .btn.small { font-size: 15px; padding: 10px 18px; }
-  .diff-btn.selected { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .diff-btn.selected, .speed-btn.selected { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .setting { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .setting-label { font-size: 13px; color: var(--muted); letter-spacing: .1em; }
+  .diff-btn small { display: block; font-size: 11px; font-weight: 600; opacity: .75; }
+  .time-info { font-size: 13px; color: var(--muted); min-height: 1.2em; }
   .best { color: var(--gold); font-size: 14px; min-height: 1em; }
 
   /* ---------- ゲーム ---------- */
@@ -140,9 +147,40 @@
     font-weight: 800;
     margin: 8px 0 6px;
     white-space: nowrap;
-    overflow: hidden;
+    padding: .1em 0;
     font-variant-numeric: tabular-nums;
   }
+  /* 数式の表示 */
+  .expr sup, .expr sub { font-size: .55em; line-height: 0; }
+  .frac {
+    display: inline-flex; flex-direction: column; align-items: center;
+    vertical-align: middle; font-size: .62em; line-height: 1.15; margin: 0 .12em;
+  }
+  .frac > span:first-child { border-bottom: .09em solid currentColor; padding: 0 .2em .05em; }
+  .frac > span:last-child { padding: .05em .2em 0; }
+  .sqrt { white-space: nowrap; }
+  .sqrt > span { border-top: .07em solid currentColor; padding: .05em .06em 0; margin-left: .02em; }
+  .lim {
+    display: inline-flex; flex-direction: column; align-items: center;
+    vertical-align: middle; line-height: 1; margin-right: .15em;
+  }
+  .lim > span:last-child { font-size: .42em; margin-top: .15em; white-space: nowrap; }
+  .bigop { display: inline-flex; align-items: center; vertical-align: middle; margin-right: .1em; }
+  .bigop .sym { font-size: 1.35em; line-height: 1; font-weight: 400; }
+  .bigop .lims {
+    display: inline-flex; flex-direction: column; justify-content: space-between;
+    font-size: .42em; height: 3em; margin-left: .05em; line-height: 1;
+  }
+  .sigma {
+    display: inline-flex; flex-direction: column; align-items: center;
+    vertical-align: middle; line-height: 1; margin-right: .1em;
+  }
+  .sigma > span:nth-child(odd) { font-size: .42em; }
+  .sigma .sym { font-size: 1.1em; }
+  .expr .q { display: block; font-size: .55em; color: var(--muted); margin-top: .2em; }
+  .history .frac { font-size: .8em; }
+  .history .q { display: block; color: var(--muted); font-size: .9em; }
+  .history .bigop .lims, .history .lim > span:last-child, .history .sigma > span:nth-child(odd) { font-size: .6em; }
   .gate .times { font-size: 15px; color: var(--muted); min-height: 1.4em; }
   .gate .times b { font-size: 22px; color: var(--text); }
   .gate .key {
@@ -278,17 +316,28 @@
     <h1>かけ算ラン！<br>なかま増やしゲーム</h1>
     <p class="lead">計算して、大きい方のゲートをくぐれ！</p>
     <div class="rules">
-      ・最初のなかまは <b>1人</b><br>
-      ・毎ラウンド <b>2つのゲート</b>（計算問題）が出るよ<br>
-      ・選んだ問題の <b>答えの数だけ人数が掛け算</b> される<br>
-      ・<b>制限時間</b>を過ぎると小さい方へ強制連行…！<br>
-      ・全 <b>10ラウンド</b>。最後に一番多くのなかまを集めよう<br>
-      ・答えが <b>1より小さい</b> ゲートには要注意
+      ・最初のなかまは <b>1人</b>。全 <b>10ラウンド</b><br>
+      ・2つの計算問題から1つを選ぶと<br>
+      　<b>今の人数 × 答え</b> になる<br>
+      ・<b>時間切れ</b>は小さい方へ強制連行…！<br>
+      ・答えが <b>1より小さい</b> ゲートに注意
     </div>
-    <div class="diff-row" id="diffRow">
-      <button class="btn ghost small diff-btn" data-diff="easy">かんたん</button>
-      <button class="btn ghost small diff-btn selected" data-diff="normal">ふつう</button>
-      <button class="btn ghost small diff-btn" data-diff="hard">むずかしい</button>
+    <div class="setting">
+      <div class="setting-label">問題のレベル</div>
+      <div class="diff-row">
+        <button class="btn ghost small diff-btn selected" data-diff="easy">かんたん<small>四則計算</small></button>
+        <button class="btn ghost small diff-btn" data-diff="normal">ふつう<small>ルート・分数・累乗</small></button>
+        <button class="btn ghost small diff-btn" data-diff="hard">むずかしい<small>lim・微積分・log</small></button>
+      </div>
+    </div>
+    <div class="setting">
+      <div class="setting-label">スピード</div>
+      <div class="diff-row">
+        <button class="btn ghost small speed-btn" data-speed="slow">ゆっくり</button>
+        <button class="btn ghost small speed-btn selected" data-speed="normal">ふつう</button>
+        <button class="btn ghost small speed-btn" data-speed="fast">はやい</button>
+      </div>
+      <div class="time-info" id="timeInfo"></div>
     </div>
     <button class="btn" id="startBtn">スタート！</button>
     <div class="best" id="bestText"></div>
@@ -357,11 +406,20 @@
 
   // ===== 設定 =====
   const ROUNDS = 10;
+  // 問題のレベル（内容）と、スピード（制限時間の倍率）は別々に選べる
   const DIFFICULTY = {
-    easy:   { time: 10, levelShift: -1, label: "かんたん" },
-    normal: { time: 8,  levelShift: 0,  label: "ふつう" },
-    hard:   { time: 6,  levelShift: 1,  label: "むずかしい" },
+    easy:   { time: 8,  label: "かんたん" },
+    normal: { time: 12, label: "ふつう" },
+    hard:   { time: 18, label: "むずかしい" },
   };
+  const SPEED = {
+    slow:   { mult: 1.5, label: "ゆっくり" },
+    normal: { mult: 1,   label: "ふつう" },
+    fast:   { mult: 0.6, label: "はやい" },
+  };
+  // ラウンドが進むごとに制限時間を少しずつ短くする（最終ラウンドで約73%）
+  const roundLimit = (diff, speed, round) =>
+    DIFFICULTY[diff].time * SPEED[speed].mult * (1 - 0.03 * (round - 1));
   const PERSON_COLORS = ["#38bdf8", "#f472b6", "#a78bfa", "#34d399", "#fbbf24", "#fb923c", "#60a5fa"];
 
   // ===== ユーティリティ =====
@@ -381,8 +439,15 @@
     }
     return String(n);
   }
-  // 1未満の答えは分数で表示（0.333… などを避ける）
-  const fmtAns = (a) => (Number.isInteger(a) ? String(a) : `1/${Math.round(1 / a)}`);
+  // 整数でない答えは分数で表示（0.333… などを避ける）
+  function fmtAns(a) {
+    if (Number.isInteger(a)) return String(a);
+    for (let d = 2; d <= 12; d++) {
+      const n = Math.round(a * d);
+      if (Math.abs(a * d - n) < 1e-9) return `${n}/${d}`;
+    }
+    return String(Math.round(a * 100) / 100);
+  }
 
   // ===== 問題生成 =====
   // レベルが上がるほど式が複雑になり、答えの幅も広がる
@@ -415,6 +480,89 @@
     ],
   };
 
+  // ----- 数式の HTML 部品 -----
+  const frac = (n, d) => `<span class="frac"><span>${n}</span><span>${d}</span></span>`;
+  const sqrt = (x) => `<span class="sqrt">√<span>${x}</span></span>`;
+  const lim = (to) => `<span class="lim"><span>lim</span><span>x→${to}</span></span>`;
+  const integral = (lo, hi) => `<span class="bigop"><span class="sym">∫</span><span class="lims"><span>${hi}</span><span>${lo}</span></span></span>`;
+  const sigma = (top, bottom) => `<span class="sigma"><span>${top}</span><span class="sym">Σ</span><span>${bottom}</span></span>`;
+  const q = (text) => `<span class="q">${text}</span>`;
+  const coef = (c) => (c === 1 ? "" : String(c));
+  const PI6 = frac("π", 6), PI4 = frac("π", 4), PI3 = frac("π", 3);
+
+  // 中学レベル：ルート・分数・累乗・負の数・方程式
+  const NORMAL = [
+    () => { const k = rand(2, 10); return [sqrt(k * k), k]; },
+    () => { const [a, b, r] = pick([[2, 8, 4], [3, 12, 6], [2, 18, 6], [5, 20, 10], [3, 27, 9], [2, 32, 8], [3, 3, 3], [7, 7, 7], [2, 50, 10]]); return [`${sqrt(a)} × ${sqrt(b)}`, r]; },
+    () => { const k = rand(2, 5), m = pick([2, 3, 5]); return [`${sqrt(m * k * k)} ÷ ${sqrt(m)}`, k]; },
+    () => { const k = rand(2, 4), m = pick([2, 3]), t = rand(1, 9); return [`(${coef(k)}${sqrt(m)})<sup>2</sup> − ${m * k * k - t}`, t]; },
+    () => { const d = rand(2, 7), t = rand(1, 4), a = rand(1, d * t - 1); return [`${frac(a, d)} + ${frac(d * t - a, d)}`, t]; },
+    () => { const d = rand(2, 6), a = rand(1, d - 1), k = rand(1, 3); return [`${frac(a, d)} × ${d * k}`, a * k]; },
+    () => { const a = rand(1, 3), b = rand(2, 4), c = rand(1, 3); return [`${frac(a, b)} ÷ ${frac(1, b * c)}`, a * c]; },
+    () => { const n = rand(2, 3), c = rand(1, 2); return [`2<sup>${n}</sup> + ${c}`, 2 ** n + c]; },
+    () => { const b = rand(3, 5), t = rand(1, 9); return [`${b}<sup>2</sup> − ${b * b - t}`, t]; },
+    () => { const a = rand(1, 3), b = rand(1, 3); return [`(−${a}) × (−${b})`, a * b]; },
+    () => { const a = rand(2, 3), t = rand(1, 9); return [`(−${a})<sup>2</sup> ${a * a > t ? `− ${a * a - t}` : `+ ${t - a * a}`}`, t]; },
+    () => { const a = rand(2, 9), t = rand(1, 9); return [`−${a} + ${a + t}`, t]; },
+    () => { const a = rand(2, 5), b = rand(1, 9), t = rand(1, 9); return [`${a}x + ${b} = ${a * t + b}${q("x = ?")}`, t]; },
+    () => { const a = rand(2, 4), b = rand(1, 9), t = rand(2, 9); return [`${a}x − ${b} = ${a * t - b}${q("x = ?")}`, t]; },
+    () => { const t = rand(2, 9), b = rand(2, 4); return [`${frac("x", b)} = ${frac(t, b)}${q("x = ?")}`, t]; },
+  ];
+  // 1より小さい答え（ワナ）
+  const NORMAL_TRAPS = [
+    () => [`${frac(1, 2)} ÷ 2`, 1 / 4],
+    () => [`${frac(2, 3)} × ${frac(3, 4)}`, 1 / 2],
+    () => [`${sqrt(2)} ÷ ${sqrt(8)}`, 1 / 2],
+    () => [`2<sup>−1</sup>`, 1 / 2],
+    () => [`3<sup>−1</sup>`, 1 / 3],
+    () => [`(${sqrt(3)})<sup>2</sup> ÷ 9`, 1 / 3],
+    () => [`${frac(1, 2)} − ${frac(1, 4)}`, 1 / 4],
+    () => [`${frac(3, 4)} ÷ ${frac(3, 2)}`, 1 / 2],
+  ];
+
+  // 高校レベル：極限・微分・積分・対数・三角関数・場合の数・数列・複素数
+  const HARD = [
+    () => { const a = rand(1, 5); return [`${lim(a)} ${frac(`x<sup>2</sup> − ${a * a}`, `x − ${a}`)}`, 2 * a]; },
+    () => { const k = rand(2, 9); return [`${lim(0)} ${frac(`sin ${k}x`, "x")}`, k]; },
+    () => { const k = rand(2, 6), m = rand(1, 3); return [`${lim(0)} ${frac(`sin ${k * m}x`, `${m}x`)}`, k]; },
+    () => { const k = rand(2, 8); return [`${lim(0)} ${frac(`e<sup>${k}x</sup> − 1`, "x")}`, k]; },
+    () => { const b = rand(1, 3), r = rand(1, 3); return [`${lim("∞")} ${frac(`${coef(b * r)}x<sup>2</sup> + ${rand(1, 9)}x`, `${coef(b)}x<sup>2</sup> − ${rand(1, 9)}`)}`, r]; },
+    () => { const a = rand(1, 3), k = rand(1, 4); return [`f(x) = x<sup>2</sup> + ${coef(k)}x${q(`f′(${a}) = ?`)}`, 2 * a + k]; },
+    () => { const k = rand(2, 11); return [`f(x) = x<sup>3</sup> − ${coef(k)}x${q("f′(2) = ?")}`, 12 - k]; },
+    () => { const a = rand(1, 3), c = rand(1, 9); return [`f(x) = ${frac("1", "3")}x<sup>3</sup> + ${c}${q(`f′(${a}) = ?`)}`, a * a]; },
+    () => { const a = rand(1, 3); return [`${integral(0, a)} 2x dx`, a * a]; },
+    () => { const a = rand(1, 2); return [`${integral(0, a)} 3x<sup>2</sup> dx`, a ** 3]; },
+    () => { const a = rand(1, 2), b = rand(1, 3); return [`${integral(0, a)} (2x + ${b}) dx`, a * a + a * b]; },
+    () => [`${integral(0, "π")} sin x dx`, 2],
+    () => [`${integral(1, "e")} ${frac(1, "x")} dx`, 1],
+    () => { const k = rand(2, 9); return [`${integral(0, 1)} ${k} dx`, k]; },
+    () => { const [b, n] = pick([[2, 1], [2, 2], [2, 3], [2, 4], [3, 2], [3, 4], [10, 3], [5, 2]]); return [`log<sub>${b}</sub> ${b ** n}`, n]; },
+    () => { const n = rand(3, 6), m = rand(1, n - 1); return [`log<sub>2</sub> ${2 ** n} − log<sub>2</sub> ${2 ** m}`, n - m]; },
+    () => { const c = pick([2, 4, 6, 8, 10, 12]); return [`${c} sin ${PI6}`, c / 2]; },
+    () => { const c = pick([2, 4, 6, 8, 10, 12]); return [`${c} cos ${PI3}`, c / 2]; },
+    () => { const c = rand(2, 9); return [`${c} tan ${PI4}`, c]; },
+    () => { const c = pick([2, 4, 6, 8, 10]); return [`${c} sin<sup>2</sup> ${PI4}`, c / 2]; },
+    () => { const [n, r, v] = pick([[5, 2, 10], [4, 2, 6], [4, 3, 4], [6, 1, 6], [3, 2, 3], [7, 1, 7]]); return [`<sub>${n}</sub>C<sub>${r}</sub>`, v]; },
+    () => { const [n, r, v] = pick([[3, 2, 6], [4, 1, 4], [2, 2, 2], [5, 1, 5], [9, 1, 9]]); return [`<sub>${n}</sub>P<sub>${r}</sub>`, v]; },
+    () => { const n = rand(2, 4); return [`${sigma(n, "k=1")} k`, (n * (n + 1)) / 2]; },
+    () => [`${sigma(2, "k=1")} k<sup>2</sup>`, 5],
+    () => { const [a, b, r] = pick([[3, 4, 5], [6, 8, 10], [4, 3, 5]]); return [`|${a} + ${b}i|`, r]; },
+    () => { const k = rand(1, 9); return [`i<sup>2</sup> + ${k + 1}`, k]; },
+    () => { const a = rand(1, 3); return [`(${a} + i)(${a} − i)`, a * a + 1]; },
+  ];
+  const HARD_TRAPS = [
+    () => [`log<sub>4</sub> 2`, 1 / 2],
+    () => [`log<sub>9</sub> 3`, 1 / 2],
+    () => [`log<sub>8</sub> 2`, 1 / 3],
+    () => [`${integral(0, 1)} x dx`, 1 / 2],
+    () => [`${integral(0, 1)} x<sup>2</sup> dx`, 1 / 3],
+    () => [`sin ${PI6}`, 1 / 2],
+    () => [`cos ${PI3}`, 1 / 2],
+    () => [`${lim("∞")} ${frac("x", "2x + 1")}`, 1 / 2],
+    () => [`${lim("∞")} ${frac(`x<sup>2</sup> + ${rand(1, 9)}`, `3x<sup>2</sup> − ${rand(1, 9)}`)}`, 1 / 3],
+    () => [`${lim(0)} ${frac("sin x", "4x")}`, 1 / 4],
+  ];
+
   // 式文字列を安全に評価（数字・演算子・括弧のみ）
   function evaluate(expr) {
     const js = expr.replace(/×/g, "*").replace(/÷/g, "/").replace(/−/g, "-");
@@ -422,10 +570,22 @@
     return Function(`"use strict";return (${js});`)();
   }
 
-  function levelFor(round, shift) {
-    // ラウンド 1-2: Lv1, 3-5: Lv2, 6-8: Lv3, 9-10: Lv4
-    const base = round <= 2 ? 1 : round <= 5 ? 2 : round <= 8 ? 3 : 4;
-    return Math.min(4, Math.max(1, base + shift));
+  function levelFor(round) {
+    // かんたん：ラウンド 1-2: Lv1, 3-5: Lv2, 6-8: Lv3, 9-10: Lv4
+    return round <= 2 ? 1 : round <= 5 ? 2 : round <= 8 ? 3 : 4;
+  }
+
+  // ふつう・むずかしい：ラウンド3以降はワナ（答えが1未満）が混ざる
+  function genAdvanced(diff, round) {
+    const pool = diff === "hard" ? HARD : NORMAL;
+    const traps = diff === "hard" ? HARD_TRAPS : NORMAL_TRAPS;
+    const trapRate = round <= 2 ? 0 : round <= 6 ? 0.12 : 0.2;
+    for (let i = 0; i < 200; i++) {
+      const [expr, ans] = pick(Math.random() < trapRate ? traps : pool)();
+      if (!(ans > 0 && ans <= 10)) continue;
+      return { expr, ans };
+    }
+    return { expr: sqrt(4), ans: 2 };
   }
 
   function genProblem(level) {
@@ -446,13 +606,16 @@
     return { expr: "2 + 2", ans: 4 };
   }
 
-  function genPair(level) {
+  function genPair(diff, round) {
+    const level = levelFor(round);
+    const gen = diff === "easy" ? () => genProblem(level) : () => genAdvanced(diff, round);
+    // 後半は答えが近い “ひっかけ” を作りやすくする
+    const preferClose = diff === "easy" ? level >= 3 : round >= 4;
     for (let i = 0; i < 200; i++) {
-      const p = genProblem(level), q = genProblem(level);
+      const p = gen(), q = gen();
       if (Math.abs(p.ans - q.ans) < 1e-9 || p.expr === q.expr) continue;
-      // 後半は答えが近い “ひっかけ” を作りやすくする
       const gap = Math.abs(p.ans - q.ans);
-      if (level >= 3 && gap > 4 && Math.random() < 0.6) continue;
+      if (preferClose && gap > 4 && Math.random() < 0.6) continue;
       return [p, q];
     }
     return [{ expr: "1 + 1", ans: 2 }, { expr: "1 + 2", ans: 3 }];
@@ -488,13 +651,13 @@
 
   // ===== 状態 =====
   const state = {
-    diff: "normal",
+    diff: "easy",
+    speed: "normal",
     round: 0,
     members: 1,
     pair: null,
     locked: true,
     deadline: 0,
-    timeLimit: 8,
     rafId: 0,
     lastTickSec: null,
     streak: 0,
@@ -504,12 +667,14 @@
     history: [],
   };
 
-  const bestKey = (d) => `mathgame.best.${d}`;
-  function loadBest(d) {
-    try { return Number(localStorage.getItem(bestKey(d))) || 0; } catch (e) { return 0; }
+  // ベスト記録は「問題のレベル × スピード」の組み合わせごと
+  const bestKey = () => `mathgame.best.${state.diff}.${state.speed}`;
+  const modeLabel = () => `${DIFFICULTY[state.diff].label}・${SPEED[state.speed].label}`;
+  function loadBest() {
+    try { return Number(localStorage.getItem(bestKey())) || 0; } catch (e) { return 0; }
   }
-  function saveBest(d, v) {
-    try { localStorage.setItem(bestKey(d), String(v)); } catch (e) { /* 保存できなくても続行 */ }
+  function saveBest(v) {
+    try { localStorage.setItem(bestKey(), String(v)); } catch (e) { /* 保存できなくても続行 */ }
   }
 
   // ===== 画面切り替え =====
@@ -518,8 +683,10 @@
   }
 
   function refreshBest() {
-    const b = loadBest(state.diff);
-    $("bestText").textContent = b ? `${DIFFICULTY[state.diff].label}のベスト記録：${formatNum(b)}人` : "";
+    const b = loadBest();
+    $("bestText").textContent = b ? `${modeLabel()}のベスト記録：${formatNum(b)}人` : "";
+    const first = roundLimit(state.diff, state.speed, 1), last = roundLimit(state.diff, state.speed, ROUNDS);
+    $("timeInfo").textContent = `制限時間：${first.toFixed(1)}秒 → 最終ラウンド ${last.toFixed(1)}秒`;
   }
 
   // ===== なかまの表示 =====
@@ -578,7 +745,6 @@
   function startGame() {
     Object.assign(state, {
       round: 0, members: 1, streak: 0, maxStreak: 0, correct: 0, idealMax: 1, history: [],
-      timeLimit: DIFFICULTY[state.diff].time,
     });
     $("roundMax").textContent = ROUNDS;
     $("crowd").innerHTML = "";
@@ -594,16 +760,16 @@
   function nextRound() {
     state.round++;
     if (state.round > ROUNDS) return finish();
-    const level = levelFor(state.round, DIFFICULTY[state.diff].levelShift);
-    state.pair = genPair(level);
+    state.pair = genPair(state.diff, state.round);
     // 後半ほど少しずつ制限時間が短くなる
-    const limit = Math.max(3.5, state.timeLimit - (state.round - 1) * 0.25);
+    const limit = roundLimit(state.diff, state.speed, state.round);
     state.curLimit = limit;
 
     $("roundNo").textContent = state.round;
     // 表示では演算子まわりを細いスペースにして横幅を節約
-    $("exprA").textContent = state.pair[0].expr.replace(/ /g, "\u2009");
-    $("exprB").textContent = state.pair[1].expr.replace(/ /g, "\u2009");
+    const thin = (html) => html.replace(/ (?![^<]*>)/g, "\u2009"); // タグ内の空白は残す
+    $("exprA").innerHTML = thin(state.pair[0].expr);
+    $("exprB").innerHTML = thin(state.pair[1].expr);
     fitExprs();
     $("timesA").innerHTML = "× ?";
     $("timesB").innerHTML = "× ?";
@@ -720,13 +886,13 @@
     $("statMax").textContent = `${formatNum(state.idealMax)}人`;
     $("statRate").textContent = `${(rate * 100).toFixed(rate >= 0.1 ? 0 : 1)}%`;
 
-    const prev = loadBest(state.diff);
+    const prev = loadBest();
     if (n > prev) {
-      saveBest(state.diff, n);
-      $("recordText").innerHTML = `<span class="new-record">🎉 自己ベスト更新！（${DIFFICULTY[state.diff].label}）</span>`;
+      saveBest(n);
+      $("recordText").innerHTML = `<span class="new-record">🎉 自己ベスト更新！（${modeLabel()}）</span>`;
       confetti();
     } else {
-      $("recordText").textContent = `自己ベスト（${DIFFICULTY[state.diff].label}）：${formatNum(prev)}人`;
+      $("recordText").textContent = `自己ベスト（${modeLabel()}）：${formatNum(prev)}人`;
     }
     if (rate >= 1) confetti();
 
@@ -772,6 +938,12 @@
       document.querySelectorAll(".diff-btn").forEach((x) => x.classList.toggle("selected", x === b));
       refreshBest();
     }));
+  document.querySelectorAll(".speed-btn").forEach((b) =>
+    b.addEventListener("click", () => {
+      state.speed = b.dataset.speed;
+      document.querySelectorAll(".speed-btn").forEach((x) => x.classList.toggle("selected", x === b));
+      refreshBest();
+    }));
 
   $("startBtn").addEventListener("click", startGame);
   $("retryBtn").addEventListener("click", startGame);
@@ -784,7 +956,7 @@
   refreshBest();
 
   // テスト・デバッグ用
-  window.__mathGame = { genPair, genProblem, evaluate, levelFor, state };
+  window.__mathGame = { genPair, genProblem, genAdvanced, evaluate, levelFor, roundLimit, fmtAns, state };
 })();
 </script>
 </body>
