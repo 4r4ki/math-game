@@ -288,6 +288,7 @@
   .final { font-size: clamp(40px, 12vw, 72px); font-weight: 900; line-height: 1.1; }
   .final small { font-size: .35em; color: var(--muted); }
   .rank { font-size: 22px; font-weight: 800; color: var(--gold); }
+  .rank-sub { font-size: 14px; font-weight: 600; color: var(--muted); }
   .stat[hidden] { display: none; }
   .stats { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
   .stat {
@@ -429,7 +430,7 @@
 
   <!-- 結果画面 -->
   <section class="screen" id="result">
-    <h2>最終結果</h2>
+    <h2 id="resultTitle">最終結果</h2>
     <div class="final" id="finalCount"></div>
     <div class="rank" id="rankText"></div>
     <div id="recordText"></div>
@@ -591,8 +592,11 @@
       `+${b} を右辺に移項して ${a}x = ${a * t + b} − ${b} = ${a * t}。両辺を ${a} で割って <b>x = ${t}</b>`]; },
     () => { const a = rand(2, 4), b = rand(1, 9), t = rand(2, 9); return [`${a}x − ${b} = ${a * t - b}${q("x = ?")}`, t,
       `−${b} を右辺に移項して ${a}x = ${a * t - b} + ${b} = ${a * t}。両辺を ${a} で割って <b>x = ${t}</b>`]; },
-    () => { const t = rand(2, 9), b = rand(2, 4); return [`${frac("x", b)} = ${frac(t, b)}${q("x = ?")}`, t,
-      `両辺に ${b} を掛けて <b>x = ${t}</b>`]; },
+    () => { const b = rand(2, 3), k = rand(1, 3), c = rand(1, 6), t = b * k; return [`${frac("x", b)} + ${c} = ${k + c}${q("x = ?")}`, t,
+      `+${c} を右辺に移項して ${frac("x", b)} = ${k + c} − ${c} = ${k}。両辺に ${b} を掛けて <b>x = ${b} × ${k} = ${t}</b>`]; },
+    () => { const b = rand(2, 4), c = rand(2, 4), t = rand(1, 10), a = b * c - t; return a < 1 ? [sqrt(t * t), t, `${t}<sup>2</sup> = ${t * t} なので <b>${t}</b>`] :
+      [`${frac(`x + ${a}`, b)} = ${c}${q("x = ?")}`, t,
+      `両辺に ${b} を掛けて x + ${a} = ${b * c}。${a} を移項して <b>x = ${b * c} − ${a} = ${t}</b>`]; },
   ];
   // 1より小さい答え（ワナ）
   const NORMAL_TRAPS = [
@@ -770,7 +774,8 @@
           else ok = false;
         } else p.op = p.ans >= 2 && (!small || Math.random() < 0.6) ? "×" : small ? "+" : (ok = false, "×");
       }
-      if (!ok || (pair[0].op === pair[1].op && pair[0].ans === pair[1].ans)) continue;
+      if (!ok) continue;
+      if (OPS[pair[0].op].apply(members, pair[0].ans) === OPS[pair[1].op].apply(members, pair[1].ans)) continue;
       return pair;
     }
     return [{ expr: "1 + 1", ans: 2, op: "×" }, { expr: "1 + 2", ans: 3, op: "+" }];
@@ -943,7 +948,12 @@
   function startSurvival() {
     state.survival = true;
     state.survivalBase = state.members;
+    state.round = ROUNDS; // 10ラウンド終了時点から数え直す（サバイバル1 = 11ラウンド目）
+    state.history = [];
+    state.peak = state.members;
+    state.correct = 0;
     state.streak = 0;
+    state.maxStreak = 0;
     $("roundMaxWrap").hidden = true;
     $("roundTag").textContent = "サバイバル ";
     $("game").classList.add("endless");
@@ -1111,14 +1121,15 @@
     sfx.end();
     const n = state.members;
     const rate = state.idealMax ? n / state.idealMax : 0;
-    const rounds = state.history.length;
+    const rounds = state.history.length; // サバイバルではサバイバル分だけ
     $("statCombo").textContent = `${state.maxStreak}`;
     $("statMaxBox").hidden = $("statRateBox").hidden = endless();
     $("statPeakBox").hidden = !endless();
-    const survived = rounds - ROUNDS;
+    const survived = rounds;
+    $("resultTitle").textContent = state.survival ? "サバイバル結果" : "最終結果";
     if (state.survival) {
-      $("finalCount").innerHTML = `${survived}<small>ラウンド生存</small>`;
-      $("rankText").textContent = `${rankForSurvival(survived)}（${formatNum(state.survivalBase)}人からスタート）`;
+      $("finalCount").innerHTML = `${survived}<small>ラウンド到達</small>`;
+      $("rankText").innerHTML = `${rankForSurvival(survived)}<br><small class="rank-sub">${formatNum(state.survivalBase)}人からスタート</small>`;
       $("statCorrect").textContent = `${state.correct} / ${rounds}`;
       $("statPeak").textContent = `${formatNum(state.peak)}人`;
     } else if (endless()) {
@@ -1151,7 +1162,7 @@
     const hop = (op, ans) => (endless() ? `<span class="hop${isHarmful({ op, ans }) ? " bad" : ""}">${op}</span>` : "");
     $("historyBody").innerHTML = state.history.map((h) => `
       <tr>
-        <td>${h.round}</td>
+        <td>${state.survival ? h.round - ROUNDS : h.round}</td>
         <td>${hop(h.op, h.ans)}${h.expr}${h.timeout ? " ⏰" : ""}</td>
         <td class="${h.isBest ? "ok" : "ng"}">${fmtAns(h.ans)}</td>
         <td>${hop(h.otherOp, h.otherAns)}${h.otherExpr} = ${fmtAns(h.otherAns)}</td>
@@ -1177,7 +1188,7 @@
       const bigger = h.chosenBetter;
       return `
       <details class="ex-round"${h.isBest ? "" : " open"}>
-        <summary>${h.round > ROUNDS && state.survival ? `サバイバル ${h.round - ROUNDS}` : `ラウンド ${h.round}`}<span class="${h.isBest ? "ok" : "ng"}">${h.isBest ? "◎ 正解" : h.timeout ? "⏰ 時間切れ" : "× 不正解"}</span></summary>
+        <summary>${state.survival ? `サバイバル ${h.round - ROUNDS}` : `ラウンド ${h.round}`}<span class="${h.isBest ? "ok" : "ng"}">${h.isBest ? "◎ 正解" : h.timeout ? "⏰ 時間切れ" : "× 不正解"}</span></summary>
         ${item(h.expr, h.ans, h.expl, bigger ? "👑 選んだ問題" : "選んだ問題", h.op, h.before, h.outcome)}
         ${item(h.otherExpr, h.otherAns, h.otherExpl, bigger ? "もう一方" : "👑 もう一方", h.otherOp, h.before, h.otherOutcome)}
       </details>`;
