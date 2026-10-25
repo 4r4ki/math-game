@@ -312,6 +312,11 @@
   .ex-q { font-size: 17px; line-height: 2; }
   .ex-a { font-size: 14px; line-height: 2.1; color: var(--text); }
   .ex-a b { color: var(--gold); }
+  .ex-op {
+    display: inline-block; font-size: 13px; font-weight: 700; line-height: 1.6;
+    padding: 0 8px; border-radius: 999px; background: rgba(255,255,255,.14);
+    vertical-align: middle; font-variant-emoji: text;
+  }
   .ex-m { font-size: 14px; margin-top: 4px; padding: 4px 10px; border-radius: 8px; background: rgba(255,255,255,.06); }
   .ex-m b { color: var(--gold); }
   .explain .frac { font-size: .75em; }
@@ -1169,7 +1174,7 @@
         <td>${formatNum(h.members)}</td>
       </tr>`).join("");
 
-    // 解き方の解説（エンドレス・サバイバルでは人数の計算も表示）
+    // 解き方の解説と、その答えで人数がどう変わったか
     const withExpl = state.history.filter((h) => h.expl);
     $("explain").hidden = withExpl.length === 0;
     // 「x = ?」「f′(1) = ?」のような問いがある式は「式 → x = 答え」の形で見せる
@@ -1180,9 +1185,9 @@
     };
     const item = (expr, ans, expl, mark, op, before, after) => `
       <div class="ex-item">
-        <div class="ex-q">${mark} ${withAnswer(expr, ans)}</div>
+        <div class="ex-q">${mark} <span class="ex-op">${op} ${OPS[op].word}</span> ${withAnswer(expr, ans)}</div>
         <div class="ex-a">${expl}</div>
-        ${endless() ? `<div class="ex-m">人数：${formatNum(before)}人 ${op} ${fmtAns(ans)} = <b>${formatNum(after)}人</b></div>` : ""}
+        <div class="ex-m">答え ${fmtAns(ans)} を今の人数に「${OPS[op].word}」：${formatNum(before)}人 ${op} ${fmtAns(ans)} = <b>${formatNum(endless() ? after : Math.max(1, after))}人</b></div>
       </div>`;
     $("explainList").innerHTML = withExpl.map((h) => {
       const bigger = h.chosenBetter;
