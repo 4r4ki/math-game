@@ -190,8 +190,8 @@
     font-variant-emoji: text;
   }
   .endless .gate .op { display: block; }
-  .op.good { background: color-mix(in srgb, var(--good) 25%, transparent); color: var(--good); }
-  .op.bad { background: color-mix(in srgb, var(--bad) 25%, transparent); color: var(--bad); }
+  /* 色で損得が分からないよう、どの演算も同じ見た目にする */
+  .gate .op { background: rgba(255,255,255,.14); color: var(--text); }
   .op small { font-size: 12px; font-weight: 700; margin-left: 4px; }
   .hop { font-weight: 700; margin-right: 2px; font-variant-emoji: text; }
   .hop.bad { color: var(--bad); }
@@ -311,6 +311,8 @@
   .ex-q { font-size: 17px; line-height: 2; }
   .ex-a { font-size: 14px; line-height: 2.1; color: var(--text); }
   .ex-a b { color: var(--gold); }
+  .ex-m { font-size: 14px; margin-top: 4px; padding: 4px 10px; border-radius: 8px; background: rgba(255,255,255,.06); }
+  .ex-m b { color: var(--gold); }
   .explain .frac { font-size: .75em; }
   .explain .bigop .lims, .explain .lim > span:last-child, .explain .sigma > span:nth-child(odd) { font-size: .55em; }
   .explain sup, .explain sub { font-size: .65em; }
@@ -324,6 +326,14 @@
   .history th { color: var(--muted); font-weight: 600; }
   .history td.ok { color: var(--good); }
   .history td.ng { color: var(--bad); }
+  .survival-offer {
+    width: 100%; max-width: 520px;
+    border: 2px solid var(--gold); border-radius: 16px;
+    padding: 12px 16px 16px; background: rgba(255, 211, 77, .08);
+  }
+  .survival-offer[hidden] { display: none; }
+  .survival-offer p { margin: 0 0 10px; font-size: 14px; line-height: 1.6; }
+  .survival-offer b { color: var(--gold); }
   .result-btns { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
 
   .confetti {
@@ -384,7 +394,7 @@
   <!-- ゲーム画面 -->
   <section class="screen" id="game">
     <div class="hud">
-      <div class="round">ラウンド <b id="roundNo">1</b><span id="roundMaxWrap"> / <span id="roundMax">10</span></span></div>
+      <div class="round"><span id="roundTag">ラウンド </span><b id="roundNo">1</b><span id="roundMaxWrap"> / <span id="roundMax">10</span></span></div>
       <div id="timeText">8.0秒</div>
       <div class="streak" id="streak"></div>
     </div>
@@ -439,6 +449,10 @@
       <p class="ex-note">間違えたラウンドは最初から開いています。タップで開閉できます。</p>
       <div id="explainList"></div>
     </section>
+    <div class="survival-offer" id="survivalOffer" hidden>
+      <p>集めたなかま <b id="survivalBase"></b> で、<br>1人以下になるまで何ラウンド生き残れるか挑戦！</p>
+      <button class="btn" id="survivalBtn">サバイバルに挑戦</button>
+    </div>
     <div class="result-btns">
       <button class="btn" id="retryBtn">もう一回！</button>
       <button class="btn ghost" id="backBtn">タイトルへ</button>
@@ -693,6 +707,34 @@
     return { expr: sqrt(4), ans: 2 };
   }
 
+  // かんたんの式を「かっこ → × ÷ → ＋ −」の順に1手ずつ計算して途中式を作る
+  function easySteps(expr) {
+    let t = expr.match(/\d+|[()+−×÷]/g);
+    const chain = [];
+    const calc = (a, op, b) => (op === "+" ? a + b : op === "−" ? a - b : op === "×" ? a * b : a / b);
+    for (let guard = 0; guard < 10 && t.length > 1; guard++) {
+      let lo = 0, hi = t.length;
+      const close = t.indexOf(")");
+      if (close >= 0) { hi = close; lo = t.lastIndexOf("(", close) + 1; }
+      const seg = t.slice(lo, hi);
+      let k = seg.findIndex((x) => x === "×" || x === "÷");
+      if (k < 0) k = seg.findIndex((x) => x === "+" || x === "−");
+      if (k < 0) { t.splice(lo - 1, 3, seg[0]); continue; } // (n) → n
+      const v = calc(Number(seg[k - 1]), seg[k], Number(seg[k + 1]));
+      t.splice(lo + k - 1, 3, Number.isInteger(v) ? String(v) : fmtAns(v));
+      if (close >= 0 && t[lo - 1] === "(" && t[lo + 1] === ")") t.splice(lo - 1, 3, t[lo]);
+      chain.push(t.join(" "));
+    }
+    const rule = expr.includes("(") ? "かっこの中を先に計算する。" :
+      /[×÷]/.test(expr) && /[+−]/.test(expr) ? "× と ÷ を先に計算する。" : "";
+    if (/÷/.test(expr) && !Number.isInteger(evaluate(expr)) && chain.length === 1) {
+      const [a, , b] = expr.split(" ");
+      return `割り切れないので分数にする：${a} ÷ ${b} = ${frac(a, b)} = <b>${chain[0]}</b>。1より小さいので人数が減るワナ！`;
+    }
+    if (chain.length <= 1) return `${expr} = <b>${chain[0] || expr}</b>`;
+    return `${rule}${expr} = ${chain.slice(0, -1).join(" = ")} = <b>${chain[chain.length - 1]}</b>`;
+  }
+
   function genProblem(level) {
     const ranges = { 1: [1, 6], 2: [1, 8], 3: [0.25, 9], 4: [0.2, 9] };
     const [lo, hi] = ranges[level];
@@ -706,9 +748,9 @@
       if (ans < lo || ans > hi) continue;
       if (!Number.isInteger(ans) && ![0.5, 0.25, 0.2, 1 / 3].some((v) => Math.abs(v - ans) < 1e-9)) continue;
       if (ans <= 0) continue;
-      return { expr, ans };
+      return { expr, ans, expl: easySteps(expr) };
     }
-    return { expr: "2 + 2", ans: 4 };
+    return { expr: "2 + 2", ans: 4, expl: "2 + 2 = <b>4</b>" };
   }
 
   // エンドレス：ラウンドが進むほど − ÷ や 1未満の × が増え、最後は必ず減っていく。
@@ -798,10 +840,11 @@
 
   // ベスト記録は「モード × 問題のレベル × スピード」の組み合わせごと
   // （10ラウンドは最終人数、エンドレスは到達ラウンド）
-  const endless = () => state.mode === "endless";
-  const bestKey = () => `mathgame.${endless() ? "endless" : "best"}.${state.diff}.${state.speed}`;
-  const modeLabel = () => `${endless() ? "エンドレス・" : ""}${DIFFICULTY[state.diff].label}・${SPEED[state.speed].label}`;
-  const bestText = (v) => (endless() ? `ラウンド ${v}` : `${formatNum(v)}人`);
+  // サバイバル：10ラウンドで集めたなかまのまま、エンドレスのルールで続ける挑戦
+  const endless = () => state.mode === "endless" || state.survival;
+  const bestKey = () => `mathgame.${state.survival ? "survival" : endless() ? "endless" : "best"}.${state.diff}.${state.speed}`;
+  const modeLabel = () => `${state.survival ? "サバイバル・" : endless() ? "エンドレス・" : ""}${DIFFICULTY[state.diff].label}・${SPEED[state.speed].label}`;
+  const bestText = (v) => (state.survival ? `${v}ラウンド生存` : endless() ? `ラウンド ${v}` : `${formatNum(v)}人`);
   function loadBest() {
     try { return Number(localStorage.getItem(bestKey())) || 0; } catch (e) { return 0; }
   }
@@ -880,9 +923,11 @@
   function startGame() {
     Object.assign(state, {
       round: 0, members: 1, peak: 1, streak: 0, maxStreak: 0, correct: 0, idealMax: 1, history: [],
+      survival: false, survivalBase: 0,
     });
     $("roundMax").textContent = ROUNDS;
     $("roundMaxWrap").hidden = endless();
+    $("roundTag").textContent = "ラウンド ";
     $("game").classList.toggle("endless", endless());
     $("crowd").innerHTML = "";
     $("count").innerHTML = `1<small>人</small>`;
@@ -894,6 +939,22 @@
     setTimeout(nextRound, 500);
   }
 
+  // 10ラウンド終了後、集めた人数のまま「1人以下になるまで」続ける
+  function startSurvival() {
+    state.survival = true;
+    state.survivalBase = state.members;
+    state.streak = 0;
+    $("roundMaxWrap").hidden = true;
+    $("roundTag").textContent = "サバイバル ";
+    $("game").classList.add("endless");
+    $("delta").textContent = "";
+    $("streak").textContent = "";
+    $("feedback").className = "feedback";
+    show("game");
+    sfx.start();
+    setTimeout(nextRound, 600);
+  }
+
   function nextRound() {
     state.round++;
     if (!endless() && state.round > ROUNDS) return finish();
@@ -901,10 +962,10 @@
       ? genEndlessPair(state.diff, state.round, state.members)
       : genPair(state.diff, state.round).map((p) => ({ ...p, op: "×" }));
     // 後半ほど少しずつ制限時間が短くなる
-    const limit = roundLimit(state.diff, state.speed, state.round, state.mode);
+    const limit = roundLimit(state.diff, state.speed, state.round, endless() ? "endless" : "classic");
     state.curLimit = limit;
 
-    $("roundNo").textContent = state.round;
+    $("roundNo").textContent = state.survival ? state.round - ROUNDS : state.round;
     // 表示では演算子まわりを細いスペースにして横幅を節約
     const thin = (html) => html.replace(/ (?![^<]*>)/g, "\u2009"); // タグ内の空白は残す
     $("exprA").innerHTML = thin(state.pair[0].expr);
@@ -913,7 +974,6 @@
     ["A", "B"].forEach((x, i) => {
       const p = state.pair[i];
       $(`op${x}`).innerHTML = `${p.op}<small>${OPS[p.op].word}</small>`;
-      $(`op${x}`).className = `op ${isHarmful(p) ? "bad" : "good"}`;
       $(`times${x}`).innerHTML = endless() ? "?" : "× ?";
     });
     document.querySelectorAll(".gate").forEach((g) => g.classList.remove("dim", "picked", "best-mark"));
@@ -1010,7 +1070,8 @@
     renderCrowd(after, after > before);
 
     state.history.push({
-      round: state.round, expr: chosen.expr, ans: chosen.ans, op: chosen.op,
+      round: state.round, before, outcome: outcome[idx], otherOutcome: outcome[1 - idx],
+      expr: chosen.expr, ans: chosen.ans, op: chosen.op,
       otherExpr: other.expr, otherAns: other.ans, otherOp: other.op, members: after, isBest, timeout,
       chosenBetter, expl: chosen.expl, otherExpl: other.expl,
     });
@@ -1027,6 +1088,14 @@
     if (rate >= 0.03) return "⭐ がんばり屋さん";
     if (n >= 10) return "🌱 なかま集め見習い";
     return "🐣 ひとりぼっち卒業を目指そう";
+  }
+
+  function rankForSurvival(rounds) {
+    if (rounds >= 30) return "👑 伝説の大将軍";
+    if (rounds >= 20) return "🏆 鉄壁の大軍団";
+    if (rounds >= 12) return "🎖 しぶとい大部隊";
+    if (rounds >= 6) return "⭐ なかなかの粘り";
+    return "🌱 次はもっと増やしてから！";
   }
 
   function rankForEndless(rounds) {
@@ -1046,7 +1115,13 @@
     $("statCombo").textContent = `${state.maxStreak}`;
     $("statMaxBox").hidden = $("statRateBox").hidden = endless();
     $("statPeakBox").hidden = !endless();
-    if (endless()) {
+    const survived = rounds - ROUNDS;
+    if (state.survival) {
+      $("finalCount").innerHTML = `${survived}<small>ラウンド生存</small>`;
+      $("rankText").textContent = `${rankForSurvival(survived)}（${formatNum(state.survivalBase)}人からスタート）`;
+      $("statCorrect").textContent = `${state.correct} / ${rounds}`;
+      $("statPeak").textContent = `${formatNum(state.peak)}人`;
+    } else if (endless()) {
       $("finalCount").innerHTML = `${rounds}<small>ラウンド到達</small>`;
       $("rankText").textContent = rankForEndless(rounds);
       $("statCorrect").textContent = `${state.correct} / ${rounds}`;
@@ -1059,7 +1134,7 @@
       $("statRate").textContent = `${(rate * 100).toFixed(rate >= 0.1 ? 0 : 1)}%`;
     }
 
-    const score = endless() ? rounds : n;
+    const score = state.survival ? survived : endless() ? rounds : n;
     const prev = loadBest();
     if (score > prev) {
       saveBest(score);
@@ -1069,6 +1144,8 @@
       $("recordText").textContent = `自己ベスト（${modeLabel()}）：${bestText(prev)}`;
     }
     if (!endless() && rate >= 1) confetti();
+    $("survivalOffer").hidden = endless() || n <= 1;
+    $("survivalBase").textContent = `${formatNum(n)}人`;
 
     // エンドレスでは演算記号も表示
     const hop = (op, ans) => (endless() ? `<span class="hop${isHarmful({ op, ans }) ? " bad" : ""}">${op}</span>` : "");
@@ -1081,7 +1158,7 @@
         <td>${formatNum(h.members)}</td>
       </tr>`).join("");
 
-    // ふつう・むずかしいの問題には解き方の解説をつける
+    // 解き方の解説（エンドレス・サバイバルでは人数の計算も表示）
     const withExpl = state.history.filter((h) => h.expl);
     $("explain").hidden = withExpl.length === 0;
     // 「x = ?」「f′(1) = ?」のような問いがある式は「式 → x = 答え」の形で見せる
@@ -1090,18 +1167,19 @@
       if (!m) return `${expr} = <b>${fmtAns(ans)}</b>`;
       return `${expr.replace(m[0], "")} → ${m[1].replace(/ = \?$/, "")} = <b>${fmtAns(ans)}</b>`;
     };
-    const item = (expr, ans, expl, mark, op) => `
+    const item = (expr, ans, expl, mark, op, before, after) => `
       <div class="ex-item">
-        <div class="ex-q">${mark} ${withAnswer(expr, ans)}${endless() ? `<small>（ゲートは ${op} ${fmtAns(ans)}）</small>` : ""}</div>
+        <div class="ex-q">${mark} ${withAnswer(expr, ans)}</div>
         <div class="ex-a">${expl}</div>
+        ${endless() ? `<div class="ex-m">人数：${formatNum(before)}人 ${op} ${fmtAns(ans)} = <b>${formatNum(after)}人</b></div>` : ""}
       </div>`;
     $("explainList").innerHTML = withExpl.map((h) => {
       const bigger = h.chosenBetter;
       return `
       <details class="ex-round"${h.isBest ? "" : " open"}>
-        <summary>ラウンド ${h.round}<span class="${h.isBest ? "ok" : "ng"}">${h.isBest ? "◎ 正解" : h.timeout ? "⏰ 時間切れ" : "× 不正解"}</span></summary>
-        ${item(h.expr, h.ans, h.expl, bigger ? "👑 選んだ問題" : "選んだ問題", h.op)}
-        ${item(h.otherExpr, h.otherAns, h.otherExpl, bigger ? "もう一方" : "👑 もう一方", h.otherOp)}
+        <summary>${h.round > ROUNDS && state.survival ? `サバイバル ${h.round - ROUNDS}` : `ラウンド ${h.round}`}<span class="${h.isBest ? "ok" : "ng"}">${h.isBest ? "◎ 正解" : h.timeout ? "⏰ 時間切れ" : "× 不正解"}</span></summary>
+        ${item(h.expr, h.ans, h.expl, bigger ? "👑 選んだ問題" : "選んだ問題", h.op, h.before, h.outcome)}
+        ${item(h.otherExpr, h.otherAns, h.otherExpl, bigger ? "もう一方" : "👑 もう一方", h.otherOp, h.before, h.otherOutcome)}
       </details>`;
     }).join("");
   }
@@ -1153,6 +1231,7 @@
 
   $("startBtn").addEventListener("click", startGame);
   $("retryBtn").addEventListener("click", startGame);
+  $("survivalBtn").addEventListener("click", startSurvival);
   $("backBtn").addEventListener("click", () => { refreshBest(); show("title"); });
   $("muteBtn").addEventListener("click", () => {
     muted = !muted;
@@ -1162,7 +1241,7 @@
   refreshBest();
 
   // テスト・デバッグ用
-  window.__mathGame = { genEndlessPair, OPS, genPair, genProblem, genAdvanced, evaluate, levelFor, roundLimit, fmtAns, state };
+  window.__mathGame = { easySteps, genEndlessPair, OPS, genPair, genProblem, genAdvanced, evaluate, levelFor, roundLimit, fmtAns, state };
 })();
 </script>
 </body>
