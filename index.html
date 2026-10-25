@@ -95,6 +95,10 @@
   .setting-label { font-size: 13px; color: var(--muted); letter-spacing: .1em; }
   .diff-btn small { display: block; font-size: 11px; font-weight: 600; opacity: .75; }
   .time-info { font-size: 13px; color: var(--muted); min-height: 1.2em; }
+  .start-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; align-items: center; }
+  .review-btn { max-width: 190px; }
+  .review-btn small { display: block; font-size: 11px; font-weight: 600; opacity: .75; }
+  .review-btn[hidden] { display: none; }
   .best { color: var(--gold); font-size: 14px; min-height: 1em; }
 
   /* ---------- ゲーム ---------- */
@@ -393,7 +397,10 @@
       </div>
       <div class="time-info" id="timeInfo"></div>
     </div>
-    <button class="btn" id="startBtn">スタート！</button>
+    <div class="start-row">
+      <button class="btn" id="startBtn">スタート！</button>
+      <button class="btn ghost small review-btn" id="reviewBtn" hidden>前回の結果<small id="reviewLabel"></small></button>
+    </div>
     <div class="best" id="bestText"></div>
   </section>
 
@@ -1161,6 +1168,9 @@
     }
     if (!endless() && rate >= 1) confetti();
     $("survivalOffer").hidden = endless() || n <= 1;
+    // タイトルから見返せるように、どの遊び方の結果かを覚えておく
+    $("reviewLabel").textContent = `${modeLabel()}・${$("finalCount").textContent}`;
+    $("reviewBtn").hidden = false;
     $("survivalBase").textContent = `${formatNum(n)}人`;
 
     // エンドレスでは演算記号も表示
@@ -1249,6 +1259,13 @@
   $("retryBtn").addEventListener("click", startGame);
   $("survivalBtn").addEventListener("click", startSurvival);
   $("backBtn").addEventListener("click", () => { refreshBest(); show("title"); });
+  // 前回の結果を見返す（結果画面の中身はそのまま残っている）。
+  // 見返しのときはタイトルで設定が変わっている場合があるので、サバイバル挑戦は出さない
+  $("reviewBtn").addEventListener("click", () => {
+    $("survivalOffer").hidden = true;
+    show("result");
+    $("result").scrollTop = 0;
+  });
   $("muteBtn").addEventListener("click", () => {
     muted = !muted;
     $("muteBtn").textContent = muted ? "🔇" : "🔊";
